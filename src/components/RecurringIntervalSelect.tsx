@@ -1,6 +1,13 @@
 import { RecurringIntervals } from "../types/user";
 import { useState } from "react";
-import { FormGroup, Select, SelectChangeEvent, MenuItem, FormControl, InputLabel } from "@mui/material";
+import {
+  FormGroup,
+  Select,
+  SelectChangeEvent,
+  MenuItem,
+  FormControl,
+  InputLabel,
+} from "@mui/material";
 
 interface RecurringIntervalSelectProps {
   selectedRecurringInterval: string;
@@ -12,7 +19,7 @@ interface RecurringIntervalSelectProps {
  */
 export const RecurringIntervalSelect: React.FC<RecurringIntervalSelectProps> = ({
   selectedRecurringInterval,
-    onRecurringChange
+  onRecurringChange,
 }) => {
   const [recurringInterval, setRecurringInterval] = useState<string>(selectedRecurringInterval);
 
@@ -44,28 +51,24 @@ export const RecurringIntervalSelect: React.FC<RecurringIntervalSelectProps> = (
       mode: "yearly",
     },
   ];
-        
+
   return (
-      <FormGroup>
-        <FormControl
-          size="small"
-          variant="outlined"
-          sx={{ m: 1, minWidth: 120 }}
+    <FormGroup>
+      <FormControl size="small" variant="outlined" sx={{ m: 1, minWidth: 120 }}>
+        <InputLabel id="recurring-select-label">Interval</InputLabel>
+        <Select
+          labelId="recurring-select-label"
+          label="Interval"
+          value={recurringInterval}
+          onChange={handleRecurringIntervalChange}
         >
-          <InputLabel id="recurring-select-label">Interval</InputLabel>
-          <Select
-            labelId="recurring-select-label"
-            label="Interval"
-            value={recurringInterval}
-            onChange={handleRecurringIntervalChange}
-          >
-            {recurringIntervals.map((option) => (
-              <MenuItem key={option.mode} value={option.mode}>
-                {option.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      </FormGroup>
+          {recurringIntervals.map((option) => (
+            <MenuItem key={option.mode} value={option.mode}>
+              {option.label}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+    </FormGroup>
   );
-}
+};
