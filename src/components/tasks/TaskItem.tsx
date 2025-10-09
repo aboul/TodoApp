@@ -218,6 +218,12 @@ export const TaskItem = memo(
                     {calculateDateDifference(new Date(task.deadline))}
                   </>
                 )}
+                {task.recurring && (
+                  <>
+                    {" • is recurring "}
+                    {task.recurringInterval}
+                  </>
+                )}
               </TimeLeft>
             </Tooltip>
           )}

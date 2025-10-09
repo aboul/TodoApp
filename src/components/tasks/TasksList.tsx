@@ -685,30 +685,6 @@ export const TasksList: React.FC = () => {
           open={editModalOpen}
           task={user.tasks.find((task) => task.id === selectedTaskId)}
           onClose={() => setEditModalOpen(false)}
-          onSave={(editedTask) => {
-            const updatedTasks = user.tasks.map((task) => {
-              if (task.id === editedTask.id) {
-                return {
-                  ...task,
-                  name: editedTask.name,
-                  color: editedTask.color,
-                  emoji: editedTask.emoji || undefined,
-                  description: editedTask.description || undefined,
-                  deadline: editedTask.deadline || undefined,
-                  category: editedTask.category || undefined,
-                  lastSave: new Date(),
-                  recurring: editedTask.recurring || false,
-                  recurringInterval: editedTask.recurringInterval || undefined,
-                };
-              }
-              return task;
-            });
-            setUser((prevUser) => ({
-              ...prevUser,
-              tasks: updatedTasks,
-            }));
-            setEditModalOpen(false);
-          }}
         />
       </TasksContainer>
       <Dialog open={deleteDialogOpen} onClose={cancelDeleteTask}>
