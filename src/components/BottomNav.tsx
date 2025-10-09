@@ -14,7 +14,7 @@ import {
   styled,
   useTheme,
 } from "@mui/material";
-import { useContext, useEffect, useState } from "react";
+import { JSX, useContext, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { UserContext } from "../contexts/UserContext";
 import { useResponsiveDisplay } from "../hooks/useResponsiveDisplay";
@@ -38,11 +38,10 @@ export const BottomNav = (): JSX.Element | null => {
 
   // useEffect hook to set the active button based on the current route
   useEffect(() => {
-    const pathParts = location.pathname.split("/"); // Split the pathname by '/'
+    const pathParts = location.pathname.split("/");
     if (pathParts[1] === "task") {
-      setValue(0); // If the user is on a task page, set the value to 0
+      setValue(0);
     } else {
-      // Handle other routes as before
       switch (location.pathname) {
         case "/categories":
           setValue(1);
@@ -65,7 +64,6 @@ export const BottomNav = (): JSX.Element | null => {
     }
   }, [location.pathname]);
 
-  // If it's a mobile device, don't render the navigation bar.
   if (!isMobile) {
     return null;
   }
@@ -103,16 +101,18 @@ export const BottomNav = (): JSX.Element | null => {
           icon={<CategoryRounded sx={{ fontSize: smallIconSize }} />}
           disabled={!settings.enableCategories}
         />
+
         <NavigationButton
           onClick={() => n("add")}
           showLabel={false}
           aria-label="Add"
           icon={
-            <AddIcon
+            <AddIconContainer
               clr={theme.palette.primary.main}
-              fontSize="large"
               animate={tasks.length === 0 && value !== 2}
-            />
+            >
+              <AddIcon clr={theme.palette.primary.main} fontSize="large" />
+            </AddIconContainer>
           }
         />
         <NavigationButton
@@ -130,19 +130,29 @@ export const BottomNav = (): JSX.Element | null => {
   );
 };
 
-const AddIcon = styled(AddRounded)<{ clr: string; animate: boolean }>`
-  border: 2px solid ${({ clr }) => clr};
-  background-color: ${({ theme }) => theme.palette.secondary.main};
-  font-size: 38px;
+const AddIconContainer = styled(Box)<{ clr: string; animate: boolean }>`
   border-radius: 100px;
-  padding: 6px;
-  margin: 14px;
-  transition: background 0.3s;
+  padding: 0;
+  margin: 0 !important;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
   ${({ animate, theme }) =>
     animate &&
     css`
       animation: ${pulseAnimation(theme.palette.primary.main, 10)} 1.2s infinite;
     `};
+`;
+
+const AddIcon = styled(AddRounded)<{ clr: string }>`
+  border: 2px solid ${({ clr }) => clr};
+  background-color: ${({ theme }) => theme.palette.secondary.main};
+  font-size: 38px;
+  border-radius: 100px;
+  padding: 6px;
+  margin: 0 !important;
+  transition: background 0.3s;
 `;
 
 const Container = styled(Box)`
@@ -155,7 +165,7 @@ const Container = styled(Box)`
 `;
 
 const StyledBottomNavigation = styled(BottomNavigation)<{ glow: boolean }>`
-  border-radius: 24px 24px 0 0;
+  /* border-radius: 24px 24px 0 0; */
   background: ${({ theme, glow }) => `${theme.palette.secondary.main}${glow ? "c8" : "e6"}`};
   backdrop-filter: blur(20px);
   margin: 0px 20px 0px -20px;
@@ -163,6 +173,9 @@ const StyledBottomNavigation = styled(BottomNavigation)<{ glow: boolean }>`
   transition:
     0.3s background,
     color;
+  @media print {
+    display: none;
+  }
 `;
 
 const NavigationButton = styled(BottomNavigationAction)`

@@ -1,5 +1,5 @@
 import styled from "@emotion/styled";
-import { Box, Button } from "@mui/material";
+import { Box, Button, ButtonProps } from "@mui/material";
 import { getFontColor } from "../utils";
 import { Info } from "@mui/icons-material";
 
@@ -11,7 +11,7 @@ export const TaskManagementContainer = styled(Box)<{ backgroundClr: string; sele
   margin: 8px;
   padding: 10px 4px;
   border-radius: 16px;
-  background: ${({ theme }) => getFontColor(theme.secondary)}15;
+  background: ${({ theme }) => (theme.darkmode ? "#00000030" : "#ffffff30")};
   border: 2px solid ${({ backgroundClr }) => backgroundClr};
   box-shadow: ${({ selected, backgroundClr }) => selected && `0 0 8px 1px ${backgroundClr}`};
   transition: 0.3s all;
@@ -47,7 +47,7 @@ export const DropZone = styled.div<{ isDragging: boolean }>`
   padding: 32px 64px;
   text-align: center;
   max-width: 300px;
-  box-shadow: ${({ isDragging, theme }) => isDragging && `0 0 32px 0px ${theme.primary}`};
+  box-shadow: ${({ isDragging, theme }) => isDragging && `0 0 32px -2px ${theme.primary}`};
   transition: 0.3s all;
   & div {
     font-weight: 500;
@@ -96,7 +96,11 @@ export const ManagementButtonsContainer = styled(Box)`
   gap: 24px;
 `;
 
-export const ManagementButton = styled(Button)`
+const UnstyledManagementButton = ({ ...props }: ButtonProps) => (
+  <Button variant="outlined" {...props} />
+);
+
+export const ManagementButton = styled(UnstyledManagementButton)`
   padding: 12px 18px;
   border-radius: 14px;
   width: 300px;
@@ -106,6 +110,3 @@ export const ManagementButton = styled(Button)`
     border-color: ${({ theme }) => getFontColor(theme.secondary) + "82"};
   }
 `;
-ManagementButton.defaultProps = {
-  variant: "outlined",
-};

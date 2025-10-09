@@ -1,18 +1,20 @@
-import { ThemeProvider as EmotionTheme } from "@emotion/react";
-import { DataObjectRounded } from "@mui/icons-material";
-import { ThemeProvider, type Theme } from "@mui/material";
+import { ThemeProvider as EmotionThemeProvider } from "@emotion/react";
+import { DataObjectRounded, DeleteForeverRounded } from "@mui/icons-material";
+import { ThemeProvider as MuiThemeProvider, type Theme } from "@mui/material";
 import { useCallback, useContext, useEffect } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
+import MainLayout from "./layouts/MainLayout";
+import { CustomToaster } from "./components/Toaster";
 import { defaultUser } from "./constants/defaultUser";
 import { UserContext } from "./contexts/UserContext";
 import { useSystemTheme } from "./hooks/useSystemTheme";
-import MainLayout from "./layouts/MainLayout";
 import AppRouter from "./router";
 import { GlobalStyles } from "./styles";
-import { getFontColor, showToast } from "./utils";
-import { CustomToaster } from "./components/Toaster";
-import { ColorPalette } from "./theme/themeConfig";
-import { Themes, createCustomTheme } from "./theme/theme";
+import { Themes, createCustomTheme } from "./theme/createTheme";
+import { showToast } from "./utils";
+import { GlobalQuickSaveHandler } from "./components/GlobalQuickSaveHandler";
+import type { Category, UUID } from "./types/user";
+import { isDarkMode } from "./utils/colorUtils";
 
 function App() {
   const { user, setUser } = useContext(UserContext);
@@ -22,35 +24,43 @@ function App() {
   // this allows to add new properties to the user object without error
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const updateNestedProperties = (userObject: any, defaultObject: any) => {
-      if (!userObject) {
-        return defaultObject;
-      }
+    const updateNestedProperties = (userObject: any, defaultObject: any): any => {
+      if (!userObject) return defaultObject;
 
       Object.keys(defaultObject).forEach((key) => {
-        // Skip 'categories' key
-        if (key === "categories") {
-          return;
-        }
-        // Check if userObject has a different colorList array than defaultObject
+        if (key === "categories") return;
+
         if (
           key === "colorList" &&
-          user.colorList &&
-          !defaultUser.colorList.every((element, index) => element === user.colorList[index])
+          userObject.colorList &&
+          !defaultUser.colorList.every((element, index) => element === userObject.colorList[index])
         ) {
           return;
+        }
+
+        if (key === "favoriteCategories" && Array.isArray(userObject.favoriteCategories)) {
+          userObject.favoriteCategories = userObject.favoriteCategories.filter((id: UUID) =>
+            userObject.categories.some((cat: Category) => cat.id === id),
+          );
+          return;
+        }
+
+        if (key === "settings" && Array.isArray(userObject.settings)) {
+          delete userObject.settings;
+          showToast("Removed old settings array format.", {
+            duration: 6000,
+            icon: <DeleteForeverRounded />,
+            disableVibrate: true,
+          });
         }
 
         const userValue = userObject[key];
         const defaultValue = defaultObject[key];
 
         if (typeof defaultValue === "object" && defaultValue !== null) {
-          // If the property is an object, recursively update nested properties
           userObject[key] = updateNestedProperties(userValue, defaultValue);
         } else if (userValue === undefined) {
-          // Update only if the property is missing in user
           userObject[key] = defaultValue;
-          // Notify users about update
           showToast(
             <div>
               Added new property to user object{" "}
@@ -70,21 +80,12 @@ function App() {
       return userObject;
     };
 
-    // Update user with default values for all properties, including nested ones
     setUser((prevUser) => {
-      // Make sure not to update if user hasn't changed
-      if (
-        JSON.stringify(prevUser) !==
-        JSON.stringify(updateNestedProperties({ ...prevUser }, defaultUser))
-      ) {
-        return updateNestedProperties({ ...prevUser }, defaultUser);
-      }
-      return prevUser;
+      const updatedUser = updateNestedProperties({ ...prevUser }, defaultUser);
+      return prevUser !== updatedUser ? updatedUser : prevUser;
     });
-  }, [setUser, user.colorList]);
+  }, [setUser]);
 
-  // This useEffect displays an native application badge count (for PWA) based on the number of tasks that are not done.
-  // https://developer.mozilla.org/en-US/docs/Web/API/Badging_API
   useEffect(() => {
     const setBadge = async (count: number) => {
       if ("setAppBadge" in navigator) {
@@ -105,14 +106,11 @@ function App() {
         }
       }
     };
-    // Function to display the application badge
+
     const displayAppBadge = async () => {
-      if (user.settings.appBadge === true) {
-        // Request permission for notifications
+      if (user.settings.appBadge) {
         if ((await Notification.requestPermission()) === "granted") {
-          // Calculate the number of incomplete tasks
           const incompleteTasksCount = user.tasks.filter((task) => !task.done).length;
-          // Update the app badge count if the value is a valid number
           if (!isNaN(incompleteTasksCount)) {
             setBadge(incompleteTasksCount);
           }
@@ -121,11 +119,11 @@ function App() {
         clearBadge();
       }
     };
-    // Check if the browser supports setting the app badge
+
     if ("setAppBadge" in navigator) {
       displayAppBadge();
     }
-  }, [setUser, user.settings, user.tasks]);
+  }, [user.settings.appBadge, user.tasks]);
 
   const getMuiTheme = useCallback((): Theme => {
     if (systemTheme === "unknown") {
@@ -138,52 +136,43 @@ function App() {
     return selectedTheme ? selectedTheme.MuiTheme : Themes[0].MuiTheme;
   }, [systemTheme, user.theme]);
 
-  const isDarkMode = (): boolean => {
-    switch (user.darkmode) {
-      case "light":
-        return false;
-      case "dark":
-        return true;
-      case "system":
-        return systemTheme === "dark";
-      case "auto":
-        return getFontColor(getMuiTheme().palette.secondary.main) === ColorPalette.fontLight;
-      default:
-        return false;
-    }
-  };
-
-  // Update the theme color meta tag in the document's head based on the user's selected theme.
   useEffect(() => {
-    document
-      .querySelector("meta[name=theme-color]")
-      ?.setAttribute("content", getMuiTheme().palette.secondary.main);
+    const themeColorMeta = document.querySelector("meta[name=theme-color]");
+    if (themeColorMeta) {
+      themeColorMeta.setAttribute("content", getMuiTheme().palette.secondary.main);
+    }
   }, [user.theme, getMuiTheme]);
 
   return (
-    <ThemeProvider
+    <MuiThemeProvider
       theme={createCustomTheme(
         getMuiTheme().palette.primary.main,
         getMuiTheme().palette.secondary.main,
-        isDarkMode() ? "dark" : "light",
+        isDarkMode(user.darkmode, systemTheme, getMuiTheme().palette.secondary.main)
+          ? "dark"
+          : "light",
       )}
     >
-      <EmotionTheme
+      <EmotionThemeProvider
         theme={{
           primary: getMuiTheme().palette.primary.main,
           secondary: getMuiTheme().palette.secondary.main,
-          darkmode: isDarkMode(),
+          darkmode: isDarkMode(user.darkmode, systemTheme, getMuiTheme().palette.secondary.main),
+          mui: getMuiTheme(),
+          reduceMotion: user.settings.reduceMotion || "system",
         }}
       >
         <GlobalStyles />
         <CustomToaster />
         <ErrorBoundary>
           <MainLayout>
-            <AppRouter />
+            <GlobalQuickSaveHandler>
+              <AppRouter />
+            </GlobalQuickSaveHandler>
           </MainLayout>
         </ErrorBoundary>
-      </EmotionTheme>
-    </ThemeProvider>
+      </EmotionThemeProvider>
+    </MuiThemeProvider>
   );
 }
 

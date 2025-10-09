@@ -12,11 +12,9 @@ dist
 dist-ssr
 *.local
 
-# Local PWA dist folder
-dev-dist
-
 # Editor directories and files
 !.vscode/extensions.json
+.vs
 .idea
 .DS_Store
 *.suo
@@ -25,3 +23,9 @@ dev-dist
 *.sln
 *.sw?
 .history
+
+# Local PWA dist folder
+dev-dist
+
+# Vite cache
+/.cache

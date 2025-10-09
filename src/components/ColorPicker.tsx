@@ -24,10 +24,11 @@ import { CSSProperties, useCallback, useContext, useEffect, useRef, useState } f
 import { type ToastOptions } from "react-hot-toast";
 import { MAX_COLORS_IN_LIST } from "../constants";
 import { UserContext } from "../contexts/UserContext";
-import { ColorElement, DialogBtn, scale } from "../styles";
+import { ColorElement, DialogBtn, scale, reduceMotion } from "../styles";
 import { ColorPalette } from "../theme/themeConfig";
-import { getFontColor, showToast } from "../utils";
+import { getFontColor, isDark, isHexColor, showToast } from "../utils";
 import { CustomDialogTitle } from "./DialogTitle";
+import { usePrefersReducedMotion } from "../hooks/usePrefersReducedMotion";
 
 interface ColorPickerProps {
   color: string;
@@ -60,7 +61,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
 
   const theme = useTheme();
 
-  const isHexColor = (value: string): boolean => /^#[0-9A-Fa-f]{6}$/.test(value);
+  const prefersReducedMotion = usePrefersReducedMotion(user.settings.reduceMotion);
 
   useEffect(() => {
     // Update the selected color when the color prop changes
@@ -84,11 +85,6 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
     }
   }, [color, handleColorChange, theme.primary]);
 
-  const handleAccordionChange = (
-    _event: React.SyntheticEvent<Element, Event>,
-    isExpanded: boolean,
-  ) => setAccordionExpanded(isExpanded);
-
   const togglePopover = (index: number) => {
     const newPopoverOpen = [...popoverOpen];
     newPopoverOpen[index] = !newPopoverOpen[index];
@@ -104,9 +100,6 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
     setOpenAddDialog(false);
     setAddColorVal(selectedColor);
   };
-
-  const handlePickerChange = (e: React.ChangeEvent<HTMLInputElement>) =>
-    setAddColorVal(e.target.value as string);
 
   const ToastColorOptions = (color: string): Pick<ToastOptions, "iconTheme" | "style"> => {
     return {
@@ -170,14 +163,20 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
   return (
     <>
       <StyledAccordion
-        onChange={handleAccordionChange}
+        onChange={(_event, isExpanded) => setAccordionExpanded(isExpanded)}
+        isExpanded={accordionExpanded}
+        fontColor={fontColor}
+        slotProps={{
+          transition: {
+            timeout: prefersReducedMotion ? 0 : undefined,
+          },
+        }}
         sx={{
-          width: width,
+          width,
         }}
       >
         <AccordionSummary
           expandIcon={<ExpandMoreRounded sx={{ color: fontColor || ColorPalette.fontLight }} />}
-          sx={{ fontWeight: 500 }}
         >
           <SummaryContent clr={fontColor || ColorPalette.fontLight}>
             {!accordionExpanded && <AccordionPreview clr={selectedColor} />}
@@ -192,10 +191,12 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
           <Grid container maxWidth={width || 400}>
             <Grid container spacing={1} maxWidth={width || 400} m={1}>
               {[theme.primary, ...colorList].map((color, index) => (
-                <Grid item key={color}>
+                <Grid key={color}>
                   <Tooltip title={getColorName(color).name}>
                     <ColorElement
-                      ref={(element) => (colorElementRefs.current[index] = element)}
+                      ref={(element: HTMLButtonElement | null) => {
+                        colorElementRefs.current[index] = element;
+                      }}
                       id={`color-element-${index}`}
                       clr={color}
                       aria-label={`Select color - ${color}`}
@@ -253,9 +254,8 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
                 </Grid>
               ))}
               <Tooltip title="Add new color">
-                <Grid item>
+                <Grid>
                   <ColorElement
-                    clr="transparent"
                     style={{ border: "2px solid", color: fontColor || ColorPalette.fontLight }}
                     onClick={handleAddDialogOpen}
                   >
@@ -288,7 +288,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
               type="color"
               // list={systemInfo.os === "iOS" ? "color-list" : undefined}
               value={addColorVal}
-              onChange={handlePickerChange}
+              onChange={(e) => setAddColorVal(e.target.value as string)}
             />
             {/* <datalist id="color-list">
               <option value={theme.primary} />
@@ -320,13 +320,28 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
   );
 };
 
-const StyledAccordion = styled(Accordion)`
-  background: #ffffff18;
+interface StyledAccordionProps {
+  isExpanded: boolean;
+  fontColor: CSSProperties["color"];
+}
+
+const StyledAccordion = styled(Accordion)<StyledAccordionProps>`
+  background: transparent;
   border-radius: 16px !important;
-  border: 1px solid #0000003a;
+  // match border with other inputs
+  border: ${({ fontColor }) =>
+    `1px solid ${isDark(fontColor as string) ? "rgba(0, 0, 0, 0.23)" : "rgb(255, 255, 255, 0.23)"}`};
   box-shadow: none;
   padding: 6px 0;
   margin: 8px 0;
+  &:hover {
+    border: ${({ theme, isExpanded, fontColor }) =>
+      isExpanded
+        ? `1px solid ${
+            isDark(fontColor as string) ? "rgba(0, 0, 0, 0.23)" : "rgba(255, 255, 255, 0.23)"
+          }`
+        : `1px solid ${theme.darkmode ? "#ffffff" : "#000000"}`};
+  }
 `;
 
 const AccordionPreview = styled.div<{ clr: string }>`
@@ -342,6 +357,7 @@ const SummaryContent = styled.div<{ clr: string }>`
   align-items: center;
   gap: 12px;
   color: ${({ clr }) => clr};
+  font-size: 16px;
 `;
 
 const ToastColorPreview = styled(AccordionPreview)`
@@ -391,7 +407,7 @@ const StyledInfo = styled.span<{ clr: string }>`
   opacity: 0.8;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   margin-top: 8px;
   margin-left: 4px;
   font-size: 14px;
@@ -421,6 +437,8 @@ const DialogPreview = styled.div`
 const SelectedIcon = styled(DoneRounded)`
   font-size: 28px;
   animation: ${scale} 0.25s;
+
+  ${({ theme }) => reduceMotion(theme)}
 `;
 
 const StyledColorPicker = styled.input`

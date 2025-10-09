@@ -1,71 +1,92 @@
 import {
+  Alert,
   Avatar,
   Badge,
   Button,
   Dialog,
   DialogActions,
   DialogContent,
-  Grid,
+  Divider,
   IconButton,
   InputAdornment,
   TextField,
   Tooltip,
+  Typography,
 } from "@mui/material";
 import { useContext, useEffect, useState } from "react";
 import styled from "@emotion/styled";
 import {
   AddAPhotoRounded,
-  CheckRounded,
   Delete,
   LinkRounded,
   Logout,
-  PersonalVideoRounded,
   SaveRounded,
   Settings,
   TodayRounded,
+  UploadRounded,
 } from "@mui/icons-material";
-import { PROFILE_PICTURE_MAX_LENGTH, USER_NAME_MAX_LENGTH } from "../constants";
-import { CustomDialogTitle, SettingsDialog, TopBar } from "../components";
-import { ColorElement, DialogBtn, UserAvatar } from "../styles";
-import { defaultUser } from "../constants/defaultUser";
+import { PFP_MAX_SIZE, PROFILE_PICTURE_MAX_LENGTH, USER_NAME_MAX_LENGTH } from "../constants";
+import { CustomDialogTitle, LogoutDialog, TopBar } from "../components";
+import { DialogBtn, fadeIn, UserAvatar, VisuallyHiddenInput } from "../styles";
 import { UserContext } from "../contexts/UserContext";
 import { timeAgo, getFontColor, showToast } from "../utils";
-import { useSystemTheme } from "../hooks/useSystemTheme";
-import { Themes } from "../theme/theme";
+import {
+  initDB,
+  saveProfilePictureInDB,
+  deleteProfilePictureFromDB,
+  validateImageFile,
+  fileToBase64,
+  getProfilePictureFromDB,
+  optimizeProfilePicture,
+  ALLOWED_PFP_TYPES,
+} from "../utils/profilePictureStorage";
 import { ColorPalette } from "../theme/themeConfig";
 
+// TODO: move this to settings dialog
 const UserProfile = () => {
   const { user, setUser } = useContext(UserContext);
   const { name, profilePicture, createdAt } = user;
   const [userName, setUserName] = useState<string>("");
   const [profilePictureURL, setProfilePictureURL] = useState<string>("");
   const [openChangeImage, setOpenChangeImage] = useState<boolean>(false);
-  const [logoutConfirmationOpen, setLogoutConfirmationOpen] = useState<boolean>(false);
-  const [openSettings, setOpenSettings] = useState<boolean>(false);
-
-  const systemTheme = useSystemTheme();
+  const [openLogoutDialog, setOpenLogoutDialog] = useState<boolean>(false);
+  const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
+  const [showBrokenPfpAlert, setShowBrokenPfpAlert] = useState(false);
 
   useEffect(() => {
     document.title = `Todo App - User ${name ? `(${name})` : ""}`;
   }, [name]);
 
+  useEffect(() => {
+    const loadAvatar = async () => {
+      const src = await getProfilePictureFromDB(profilePicture);
+      setAvatarSrc(src);
+    };
+
+    loadAvatar();
+  }, [profilePicture]);
+
+  useEffect(() => {
+    setShowBrokenPfpAlert(false);
+
+    const timer = setTimeout(() => {
+      setShowBrokenPfpAlert(true);
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [avatarSrc, profilePicture]);
+
+  useEffect(() => {
+    // Initialize IndexedDB
+    initDB().catch((error) => {
+      console.error("Error initializing IndexedDB:", error);
+    });
+  }, []);
+
   const handleSaveName = () => {
     if (userName.length <= USER_NAME_MAX_LENGTH && userName !== name) {
       setUser({ ...user, name: userName });
-
-      showToast(
-        <div>
-          Changed user name
-          {userName && (
-            <>
-              {" "}
-              to <b translate="no">{userName}</b>
-            </>
-          )}
-          .
-        </div>,
-      );
-
+      showToast("Updated user name");
       setUserName("");
     }
   };
@@ -75,38 +96,121 @@ const UserProfile = () => {
   };
   const handleCloseImageDialog = () => {
     setOpenChangeImage(false);
+    setProfilePictureURL("");
   };
 
-  const handleLogoutConfirmationClose = () => {
-    setLogoutConfirmationOpen(false);
-  };
-  const handleLogout = () => {
-    setUser(defaultUser);
-    handleLogoutConfirmationClose();
-    showToast("You have been successfully logged out");
-  };
-
-  const handleSaveImage = () => {
+  const handleSaveImageLink = () => {
     if (
       profilePictureURL.length <= PROFILE_PICTURE_MAX_LENGTH &&
       profilePictureURL.startsWith("https://")
     ) {
-      handleCloseImageDialog();
+      if (user.profilePicture && user.profilePicture.startsWith("LOCAL_FILE_")) {
+        handleDeleteImage(() => {
+          setUser((prevUser) => ({
+            ...prevUser,
+            profilePicture: profilePictureURL,
+          }));
+          setProfilePictureURL("");
+          handleCloseImageDialog();
+          showToast("Profile picture updated with link.");
+        });
+      } else {
+        setUser((prevUser) => ({
+          ...prevUser,
+          profilePicture: profilePictureURL,
+        }));
+        setProfilePictureURL("");
+        handleCloseImageDialog();
+        showToast("Profile picture updated with link.");
+      }
+    } else {
+      showToast("Invalid profile picture URL.", { type: "error" });
+    }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const error = validateImageFile(file);
+    if (error) {
+      showToast(error, { type: "error" });
+      return;
+    }
+
+    try {
+      const originalSize = file.size;
+      // crop image to square first
+      const croppedBlob = await optimizeProfilePicture(file);
+      const croppedFile = new File([croppedBlob], file.name, { type: croppedBlob.type });
+
+      const base64 = await fileToBase64(croppedFile);
+      const newId = await saveProfilePictureInDB(base64);
+
       setUser((prevUser) => ({
         ...prevUser,
-        profilePicture: profilePictureURL,
+        profilePicture: newId,
       }));
-      showToast("Changed profile picture.");
+
+      handleCloseImageDialog();
+
+      const formatBytes = (bytes: number): string => {
+        const units = ["byte", "kilobyte", "megabyte"] as const;
+        const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+        const value = bytes / 1024 ** i;
+
+        return new Intl.NumberFormat(navigator.language, {
+          style: "unit",
+          unit: units[i],
+          maximumFractionDigits: 1,
+        }).format(value);
+      };
+
+      // calculate actual byte size including the header
+      const base64Size = new TextEncoder().encode(base64).length;
+
+      const compressionPercent = Number(((1 - base64Size / originalSize) * 100).toFixed(1));
+
+      showToast(
+        compressionPercent > 10 ? (
+          <>
+            <strong>Profile picture uploaded.</strong>
+            <br />
+            Compressed from <b style={{ whiteSpace: "nowrap" }}>
+              {formatBytes(originalSize)}
+            </b> to <b style={{ whiteSpace: "nowrap" }}>{formatBytes(base64Size)}</b> (
+            {compressionPercent}% smaller)
+          </>
+        ) : (
+          "Profile picture uploaded."
+        ),
+        { duration: 7000 },
+      );
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      showToast("Failed to upload profile picture.", { type: "error" });
+    }
+  };
+
+  const handleDeleteImage = async (callback?: () => void) => {
+    try {
+      await deleteProfilePictureFromDB();
+      setUser((prevUser) => ({ ...prevUser, profilePicture: null }));
+    } catch (error) {
+      console.error("Error deleting profile picture:", error);
+      showToast("Failed to delete profile picture.", { type: "error" });
+    } finally {
+      callback?.();
     }
   };
 
   return (
     <>
       <TopBar title="User Profile" />
-      <Container>
+      <Container glow={user.settings.enableGlow}>
         <Tooltip title="App Settings">
           <IconButton
-            onClick={() => setOpenSettings(true)}
+            onClick={() => (window.location.hash = "#settings")}
             aria-label="Settings"
             size="large"
             sx={{
@@ -125,6 +229,14 @@ const UserProfile = () => {
             badgeContent={
               <Avatar
                 onClick={handleOpenImageDialog}
+                tabIndex={0}
+                role="button"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleOpenImageDialog();
+                  }
+                }}
                 sx={{
                   background: "#9c9c9c81",
                   backdropFilter: "blur(10px)",
@@ -137,14 +249,22 @@ const UserProfile = () => {
           >
             <UserAvatar
               onClick={handleOpenImageDialog}
-              src={profilePicture || undefined}
+              src={avatarSrc || undefined}
               hasimage={profilePicture !== null}
+              style={{ cursor: "pointer" }}
               size="96px"
             >
               {name ? name[0].toUpperCase() : undefined}
             </UserAvatar>
           </Badge>
         </Tooltip>
+        {showBrokenPfpAlert &&
+          (!avatarSrc || !avatarSrc.startsWith("data:")) &&
+          profilePicture?.startsWith("LOCAL_FILE") && (
+            <BrokenPfpAlert severity="warning" variant="outlined">
+              Profile picture might be broken. You can try removing it.
+            </BrokenPfpAlert>
+          )}
         <UserName translate={name ? "no" : "yes"}>{name || "User"}</UserName>
         <Tooltip
           title={new Intl.DateTimeFormat(navigator.language, {
@@ -158,68 +278,8 @@ const UserProfile = () => {
           </CreatedAtDate>
         </Tooltip>
 
-        <ThemePickerContainer
-          container
-          maxWidth="300px"
-          marginBottom="6px"
-          marginTop="1px"
-          display="flex"
-          justifyContent="left"
-          alignItems="center"
-          gap={1}
-        >
-          <Grid item>
-            <Tooltip title={`System (${systemTheme})`}>
-              <ColorElement
-                clr={systemTheme === "dark" || systemTheme === "unknown" ? "#3d3e59" : "#ffffff"}
-                style={{ transition: ".3s background" }}
-                size="40px"
-                onClick={() => {
-                  setUser((prevUser) => ({
-                    ...prevUser,
-                    theme: "system",
-                  }));
-                }}
-              >
-                <Badge badgeContent={user.theme === "system" ? <CheckIcon /> : undefined}>
-                  <PersonalVideoRounded
-                    sx={{ color: systemTheme === "dark" ? "white" : "black" }}
-                  />
-                </Badge>
-              </ColorElement>
-            </Tooltip>
-          </Grid>
-          {Themes.map((theme) => (
-            <Grid key={theme.name}>
-              <Tooltip title={theme.name[0].toUpperCase() + theme.name.replace(theme.name[0], "")}>
-                <ColorElement
-                  clr={theme.MuiTheme.palette.primary.main}
-                  secondClr={theme.MuiTheme.palette.secondary.main}
-                  aria-label={`Change theme - ${theme.name}`}
-                  size="40px"
-                  style={{
-                    border:
-                      user.theme === theme.name
-                        ? `3px solid ${theme.MuiTheme.palette.primary.main}`
-                        : "none",
-                  }}
-                  onClick={() => {
-                    setUser((prevUser) => ({
-                      ...prevUser,
-                      theme: theme.name,
-                    }));
-                  }}
-                >
-                  <Badge badgeContent={user.theme === theme.name ? <CheckIcon /> : undefined}>
-                    <div style={{ width: "24px", height: "24px" }} />
-                  </Badge>
-                </ColorElement>
-              </Tooltip>
-            </Grid>
-          ))}
-        </ThemePickerContainer>
         <TextField
-          sx={{ width: "300px" }}
+          sx={{ width: "300px", marginTop: "8px" }}
           label={name === null ? "Add Name" : "Change Name"}
           value={userName}
           onChange={(e) => setUserName(e.target.value)}
@@ -234,7 +294,7 @@ const UserProfile = () => {
                   ? "New username matches old one."
                   : ""
           }
-          autoComplete="nickname"
+          autoComplete="given-name"
         />
 
         <SaveBtn
@@ -247,7 +307,7 @@ const UserProfile = () => {
           color="error"
           variant="outlined"
           sx={{ p: "12px 20px", borderRadius: "14px", marginTop: "8px" }}
-          onClick={() => setLogoutConfirmationOpen(true)}
+          onClick={() => setOpenLogoutDialog(true)}
         >
           <Logout />
           &nbsp; Logout
@@ -262,7 +322,6 @@ const UserProfile = () => {
         />
         <DialogContent>
           <TextField
-            autoFocus
             label="Link to profile picture"
             placeholder="Enter link to profile picture..."
             sx={{ my: "8px", width: "100%" }}
@@ -270,7 +329,7 @@ const UserProfile = () => {
             onChange={(e) => {
               setProfilePictureURL(e.target.value);
             }}
-            onKeyDown={(e) => e.key === "Enter" && handleSaveImage()}
+            onKeyDown={(e) => e.key === "Enter" && handleSaveImageLink()}
             error={profilePictureURL.length > PROFILE_PICTURE_MAX_LENGTH}
             helperText={
               profilePictureURL.length > PROFILE_PICTURE_MAX_LENGTH
@@ -279,30 +338,62 @@ const UserProfile = () => {
             }
             autoComplete="url"
             type="url"
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <LinkRounded />
-                </InputAdornment>
-              ),
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <LinkRounded />
+                  </InputAdornment>
+                ),
+              },
             }}
           />
 
-          <br />
+          <StyledDivider>
+            <span style={{ opacity: 0.8 }}>or</span>
+          </StyledDivider>
+
+          <Button
+            component="label"
+            variant="contained"
+            role={undefined}
+            tabIndex={-1}
+            fullWidth
+            sx={{ my: "8px" }}
+          >
+            <UploadRounded /> &nbsp; Upload from file
+            <VisuallyHiddenInput accept="image/*" type="file" onChange={handleFileUpload} />
+          </Button>
+
+          <Typography sx={{ opacity: 0.6, textAlign: "center", fontSize: "14px" }}>
+            {ALLOWED_PFP_TYPES.map((type) => type.replace("image/", "").toUpperCase()).join(", ")}{" "}
+            under{" "}
+            {new Intl.NumberFormat("en-US", {
+              style: "unit",
+              unit: "megabyte",
+              maximumFractionDigits: 2,
+            }).format(PFP_MAX_SIZE / (1024 * 1024))}
+          </Typography>
+
           {profilePicture !== null && (
-            <Button
-              fullWidth
-              onClick={() => {
-                handleCloseImageDialog();
-                showToast("Deleted profile image.");
-                setUser({ ...user, profilePicture: null });
-              }}
-              color="error"
-              variant="outlined"
-              sx={{ margin: "16px 0", p: "12px 20px", borderRadius: "14px" }}
-            >
-              <Delete /> &nbsp; Delete Image
-            </Button>
+            <>
+              <Divider sx={{ my: "12px" }} />
+              <Button
+                fullWidth
+                onClick={() => {
+                  handleDeleteImage(() => {
+                    setUser((prevUser) => ({ ...prevUser, profilePicture: null }));
+                    handleCloseImageDialog();
+                    showToast("Profile picture removed.");
+                  });
+                }}
+                color="error"
+                variant="outlined"
+                sx={{ my: "8px" }}
+              >
+                <Delete /> &nbsp; Remove Profile Picture
+              </Button>
+            </>
           )}
         </DialogContent>
         <DialogActions>
@@ -312,44 +403,31 @@ const UserProfile = () => {
               profilePictureURL.length > PROFILE_PICTURE_MAX_LENGTH ||
               !profilePictureURL.startsWith("https://")
             }
-            onClick={handleSaveImage}
+            onClick={handleSaveImageLink}
           >
             <SaveRounded /> &nbsp; Save
           </DialogBtn>
         </DialogActions>
       </Dialog>
-      <Dialog open={logoutConfirmationOpen} onClose={handleLogoutConfirmationClose}>
-        <CustomDialogTitle title="Logout Confirmation" icon={<Logout />} />
-        <DialogContent>
-          Are you sure you want to logout? <b>Your tasks will not be saved.</b>
-        </DialogContent>
-        <DialogActions>
-          <DialogBtn onClick={handleLogoutConfirmationClose}>Cancel</DialogBtn>
-          <DialogBtn onClick={handleLogout} color="error">
-            <Logout /> &nbsp; Logout
-          </DialogBtn>
-        </DialogActions>
-      </Dialog>
-      <SettingsDialog open={openSettings} onClose={() => setOpenSettings(false)} />
+      <LogoutDialog open={openLogoutDialog} onClose={() => setOpenLogoutDialog(false)} />
     </>
   );
 };
 
 export default UserProfile;
 
-const Container = styled.div`
+const Container = styled.div<{ glow: boolean }>`
   margin: 0 auto;
   max-width: 400px;
-  padding: 64px 48px;
+  padding: 64px 38px;
   border-radius: 48px;
-  box-shadow: 0px 4px 50px rgba(0, 0, 0, 0.25);
   background: ${({ theme }) => (theme.darkmode ? "#383838" : "#f5f5f5")};
   color: ${({ theme }) => (theme.darkmode ? ColorPalette.fontLight : ColorPalette.fontDark)};
   transition:
     border 0.3s,
     box-shadow 0.3s;
   border: 4px solid ${({ theme }) => theme.primary};
-  box-shadow: 0 0 72px -1px ${({ theme }) => theme.primary + "bf"};
+  box-shadow: ${({ glow, theme }) => (glow ? `0 0 72px -1px ${theme.primary}bf` : "none")};
   display: flex;
   gap: 14px;
   flex-direction: column;
@@ -359,21 +437,6 @@ const Container = styled.div`
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-`;
-
-const CheckIcon = styled(CheckRounded)`
-  font-size: 18px;
-  padding: 2px;
-  color: white;
-  background: #242427;
-  border-radius: 100px;
-`;
-
-const ThemePickerContainer = styled(Grid)`
-  background: ${({ theme }) => (theme.darkmode ? "#505050" : "#d9d9d9")};
-  padding: 10px;
-  border-radius: 32px;
-  overflow-y: auto;
 `;
 
 const SaveBtn = styled(Button)`
@@ -411,10 +474,26 @@ const CreatedAtDate = styled.span`
   font-style: italic;
   font-weight: 400;
   opacity: 0.8;
-  margin-top: -5px;
+  margin-top: -8px;
   margin-bottom: 2px;
   // fix for browser translate
   & font {
     margin: 0 1px;
   }
+`;
+
+const StyledDivider = styled(Divider)`
+  &::before,
+  &::after {
+    border-color: ${({ theme }) => (theme.darkmode ? "#ffffff83" : "#00000083")};
+  }
+`;
+
+const BrokenPfpAlert = styled(Alert)`
+  margin: 0;
+  max-width: 260px;
+  font-size: 0.7rem;
+  padding: 0 8px;
+  align-items: center;
+  animation: ${fadeIn} 0.5s ease-in;
 `;

@@ -14,13 +14,16 @@ import {
   AccordionSummary,
   Alert,
   Button,
+  ButtonProps,
+  Dialog,
+  DialogActions,
+  DialogContent,
   Typography,
 } from "@mui/material";
-import { Emoji } from "emoji-picker-react";
 import React, { ErrorInfo } from "react";
-import { TaskIcon } from ".";
+import { CustomDialogTitle, TaskIcon } from ".";
 import { UserContext } from "../contexts/UserContext";
-import { StyledLink } from "../styles";
+import { DialogBtn, StyledLink } from "../styles";
 import { exportTasksToJson, getFontColor, showToast } from "../utils";
 
 interface ErrorBoundaryProps {
@@ -30,6 +33,7 @@ interface ErrorBoundaryProps {
 interface ErrorBoundaryState {
   hasError: boolean;
   error?: Error;
+  openClearDialog: boolean;
 }
 
 /**
@@ -43,6 +47,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
     super(props);
     this.state = {
       hasError: false,
+      openClearDialog: false,
     };
   }
 
@@ -50,19 +55,44 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
     return {
       hasError: true,
       error: error,
+      openClearDialog: false,
     };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     console.error("Error:", error);
     console.error("Error Info:", errorInfo);
+    // This fixes issues with caching where dynamically imported modules fail to load due to changed asset names in new builds.
+    if (
+      error.message.includes("Failed to fetch dynamically imported") ||
+      error.message.includes("is not a valid JavaScript")
+    ) {
+      showToast("Reloading page", { type: "loading" });
+
+      const retries = parseInt(sessionStorage.getItem("reload_retries") || "0", 10);
+
+      if (retries < 3) {
+        setTimeout(() => {
+          sessionStorage.setItem("reload_retries", String(retries + 1));
+          location.reload();
+        }, 1000);
+      }
+    }
   }
 
-  handleClearData() {
+  handleOpenDialog = () => {
+    this.setState({ openClearDialog: true });
+  };
+
+  handleCloseDialog = () => {
+    this.setState({ openClearDialog: false });
+  };
+
+  handleConfirmClearData = () => {
     localStorage.clear();
     sessionStorage.clear();
     location.reload();
-  }
+  };
 
   render() {
     if (this.state.hasError) {
@@ -71,15 +101,18 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 
       return (
         <Container>
-          <ErrorHeader>
-            <span>Oops! An error occurred.&nbsp;</span>
-            <span>
-              <Emoji size={38} unified="1f644" />
-            </span>
-          </ErrorHeader>
+          <ErrorHeader>Oops! An error occurred.</ErrorHeader>
           <ErrorIconContainer>
             <TaskIcon scale={0.6} variant="error" />
           </ErrorIconContainer>
+          <h3>
+            <span style={{ color: "#ff3131", display: "inline-block" }}>
+              <ErrorOutlineRounded sx={{ verticalAlign: "middle", mb: "4px" }} /> ERROR:
+            </span>{" "}
+            <span translate="no">
+              [{this.state.error?.name}] {this.state.error?.message}
+            </span>
+          </h3>
           <h2>
             To fix it, try clearing your local files (cookies and cache) and then refresh the page.
             If the problem persists, please report the issue via{" "}
@@ -95,18 +128,10 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
             <StyledButton color="warning" onClick={() => location.reload()}>
               <RefreshRounded /> &nbsp; Refresh Page
             </StyledButton>
-            <StyledButton color="error" onClick={this.handleClearData}>
+            <StyledButton color="error" onClick={this.handleOpenDialog}>
               <DeleteForeverRounded /> &nbsp; Auto Clear
             </StyledButton>
           </div>
-          <h3>
-            <span style={{ color: "#ff3131", display: "inline-block" }}>
-              <ErrorOutlineRounded sx={{ verticalAlign: "middle", mb: "4px" }} /> ERROR:
-            </span>{" "}
-            <span translate="no">
-              [{this.state.error?.name}] {this.state.error?.message}
-            </span>
-          </h3>
 
           <ErrorAccordion disableGutters>
             <AccordionSummary expandIcon={<ErrorExpandIcon />}>
@@ -142,6 +167,23 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
             <br />
             <code translate="no">{JSON.stringify(user, null, 4)}</code>
           </pre>
+          <Dialog open={this.state.openClearDialog} onClose={this.handleCloseDialog}>
+            <CustomDialogTitle
+              title="Clear Data"
+              subTitle="This action cannot be undone."
+              icon={<DeleteForeverRounded />}
+              onClose={this.handleCloseDialog}
+            />
+            <DialogContent>
+              Are you sure you want to clear all data? You will loose all of your tasks.
+            </DialogContent>
+            <DialogActions>
+              <DialogBtn onClick={this.handleCloseDialog}>Cancel</DialogBtn>
+              <DialogBtn onClick={this.handleConfirmClearData} color="error">
+                Confirm
+              </DialogBtn>
+            </DialogActions>
+          </Dialog>
         </Container>
       );
     }
@@ -189,6 +231,7 @@ const ErrorAccordion = styled(Accordion)`
   box-shadow: none;
   padding: 4px;
   margin-bottom: 18px;
+  margin-top: 18px;
 `;
 
 const ErrorExpandIcon = styled(ExpandMoreRounded)`
@@ -196,17 +239,17 @@ const ErrorExpandIcon = styled(ExpandMoreRounded)`
   font-size: 32px;
 `;
 
-const StyledButton = styled(Button)`
+const UnstyledButton = ({ ...props }: ButtonProps) => (
+  <Button variant="outlined" size="large" {...props} />
+);
+
+const StyledButton = styled(UnstyledButton)`
   padding: 10px 30px;
   border-radius: 12px;
   @media (max-width: 768px) {
     width: 100%;
   }
 `;
-StyledButton.defaultProps = {
-  variant: "outlined",
-  size: "large",
-};
 
 const UserDataLabel = styled.p`
   font-size: 18px;

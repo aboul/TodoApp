@@ -1,4 +1,4 @@
-import type { Theme } from "@mui/material";
+import { type Theme } from "@mui/material";
 
 export const muiComponentsProps: Theme["components"] = {
   MuiTooltip: {
@@ -16,8 +16,22 @@ export const muiComponentsProps: Theme["components"] = {
         padding: "12px 24px",
         borderRadius: "14px",
       },
+      // TODO: use startIcon for mui button icons instead
+      // startIcon: {
+      //   fontSize: "24px",
+      //   "& > *:nth-of-type(1)": {
+      //     fontSize: "inherit",
+      //   },
+      // },
+      // endIcon: {
+      //   fontSize: "24px",
+      //   "& > *:nth-of-type(1)": {
+      //     fontSize: "inherit",
+      //   },
+      // },
     },
   },
+
   MuiSelect: {
     styleOverrides: {
       root: {
@@ -27,11 +41,13 @@ export const muiComponentsProps: Theme["components"] = {
   },
   MuiDialog: {
     defaultProps: {
-      PaperProps: {
-        style: {
-          padding: "12px",
-          borderRadius: "24px",
-          minWidth: "400px",
+      slotProps: {
+        paper: {
+          style: {
+            padding: "12px",
+            borderRadius: "24px",
+            minWidth: "400px",
+          },
         },
       },
     },

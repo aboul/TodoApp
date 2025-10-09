@@ -1,18 +1,23 @@
-<p align="center">
-<img src="public/logo256.png" width="128px" />
-<h1>📝React.js Todo App</h1>
-</p>
+<!-- <p align="center">
+<img src="https://raw.githubusercontent.com/maciekt07/TodoApp/main/public/logo192.png" width="128px" />
+</p> -->
+
+# 📝React.js Todo App
+
+<p align="center"><i>A fast and modern Todo app built with React, featuring task sharing via link, P2P Task Sync with WebRTC, theme customization, offline usage as a PWA, and caching for smooth performance.</i></p>
+
+<img src="https://raw.githubusercontent.com/maciekt07/TodoApp/main/screenshots/baner.png" />
 
 ## [https://react-cool-todo-app.netlify.app/](https://react-cool-todo-app.netlify.app/)
 
 [![Netlify Status](https://api.netlify.com/api/v1/badges/e3b07d34-f0da-4280-9076-fd40eea893c6/deploy-status)](https://app.netlify.com/sites/react-cool-todo-app/deploys)
 ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/maciekt07/TodoApp?color=%23b624ff)
+![GitHub created at ](https://img.shields.io/github/created-at/maciekt07/TodoApp?color=%23b624ff)
 ![GitHub last commit](https://img.shields.io/github/last-commit/maciekt07/TodoApp?color=%23b624ff)
-![GitHub License](https://img.shields.io/github/license/maciekt07/TodoApp?color=%23b624ff)
 
-<p align="center">
-<img src="screenshots/iPhone Mockup black.png" width="400px" />
-</p>
+<!-- <p align="center">
+<img src="https://raw.githubusercontent.com/maciekt07/TodoApp/main/screenshots/iPhone%20Mockup%20black.png" width="400px" />
+</p> -->
 
 ## 💻 Tech Stack
 
@@ -39,56 +44,127 @@
 
 ## ⚡ Features
 
-- **📦 Local and session storage**: Save tasks locally and retain form data using session storage.
-- **😜 Custom Emojis**: The app features custom emojis and different emoji styles to choose from, including Apple, Facebook, Twitter, Google and Native.
-- **🔗 Share tasks by link**: Easily share your tasks with others using a link or QR code, with the option to download the QR code. [Example Link](https://react-cool-todo-app.netlify.app/share?task=%7B%22done%22%3Afalse%2C%22pinned%22%3Atrue%2C%22name%22%3A%22Website%20Development%22%2C%22description%22%3A%22Create%20a%20landing%20page%20with%20React.js%20for%20client.%20https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3DbMknfKXIFA8%26t%3D23s%26ab_channel%3DfreeCodeCamp.org%22%2C%22emoji%22%3A%221f468-1f3fc-200d-1f4bb%22%2C%22color%22%3A%22%23b624ff%22%2C%22date%22%3A%222024-02-14T23%3A26%3A21.095Z%22%2C%22category%22%3A%5B%7B%22id%22%3A168712541746303%2C%22name%22%3A%22Coding%22%2C%22emoji%22%3A%221f5a5-fe0f%22%2C%22color%22%3A%22%236d12ff%22%7D%2C%7B%22id%22%3A2%2C%22name%22%3A%22Work%22%2C%22emoji%22%3A%221f3e2%22%2C%22color%22%3A%22%23248eff%22%7D%5D%2C%22deadline%22%3A%222024-05-31T16%3A20%22%2C%22lastSave%22%3A%222024-05-11T14%3A18%3A50.269Z%22%7D&userName=Maciej)<br/><img src="screenshots/RecievedTask.png" width="260px" />
-- **🤖 AI emoji choosing**: This uses `window.ai` which is an experimental feature that works only in dev version of Chrome with some flags enabled. [More info](https://afficone.com/blog/window-ai-new-chrome-feature-api/) <br/>
-  <img style="border-radius:12px" src="screenshots/emoji-ai.gif" alt="emoji-ai" width="260px" />
-- **📱 Clean and responsive design**: Ensures smooth user experience on various devices.
-- **🔍 Highlighted Links in Task Descriptions**: Links included in task descriptions will be visually highlighted for easier identification and access.
-- **🌐 Native Intl Integration**: Adapts to your language, timezone, and date preferences using the native `Intl` API.
-- **🌍 Browser Translation Support**: Seamlessly translate the entire page into different languages using your browser's translation feature, ensuring accessibility for users worldwide.
-- **🗂️ Customizable Categories**: Users can create and personalize task categories to suit their preferences.
-- **🎨 Color Themes**: Users can choose several app color themes. <br/> <img src="screenshots/ColorThemes.png" width="200px" />
-- **🗃️ Multi-Task Selection**: Option to select multiple tasks and perform actions on all of them at once. <br/> <img src="screenshots/Select.png" width="260px" />
-- **🔎 Search Tasks**: Search functionality allows you to filter tasks by name or description, making it easy to find what you need.
-- **🗣️ Task Reading Aloud**: Option to have tasks read aloud using the native `SpeechSynthesis` API, with a selection of voices to choose from. <br/>
-  <img src="screenshots/ReadAloud.png" width="260px" />
-- **📥 Import/Export Tasks**: Users can import and export tasks to/from JSON files. This feature allows users to back up their tasks or transfer them to other devices easily. [Example Import File](https://github.com/maciekt07/TodoApp/blob/main/example-import.json)
-- **📴 Works offline**: This app is a Progressive Web App (PWA), which means it can be installed on your device, used even when you're offline and behave like a normal application with shortcuts and badges.<br/>
-  <img src="screenshots/pwaTaskBar.png" alt="taskbar" width="260px" />
+### 🔗 Share Tasks by Link or QR Code
 
-## 📷 Screenshots
+Easily share your tasks with others using a link or QR code.
 
-<img src="screenshots/ss1.png" width="300px" />
+**[Example Link](https://react-cool-todo-app.netlify.app/share?task=N4IgJg9gdgpiBcAzAhgGwM4wDQgA4EspYwEAXAJwFdsQpkBbOeEAdRgCN19SYACAERgA3GKgi5GUUiBxgY6AMbl8uUvmgIQAYXIxkPXsl6pkUMIQDmvXMgt8A7twAWvAEp6FpAHQArdL0QIcl4FVHwYKS9eJ1JSXHR4AHpE+1SvAE8ISlJKdhgvBQh6FP0FJwB+IQBedgBZAGsoRABpAA0ASQAxAEEADgAyUiqAJgBmdH7kdgB9MtNYVCrEXRgtCDktBlwvIIsZEBh6CB98TQBGRABOMDOAWgvRxAVb4YAGV7B7xAAWdnZ9wpiciaADE7AAbMNvohEPswPomCA3sMAKy3V7fF6vAAqrzO8DOl3gr3BXleAHZRgAtOF6MBhWCaZFojEvUa4-FnXrE15k940nAKBEWILpBAAbVA+BIzFew0uwwU7GQaMQ4Jgw1u3zOCkx7BRyHJtwUKMuyFeyGQMAUiBgo32dEYmhYQXq+0Ox1OzAeGoBECBoKhvRgMJAAF8sFKZWdwb1yWdUdryd9waMyaMcI7EWtzFA9jgPSdzogDaqYK9YYL-UFQeCbsNQ2GALo4EzoUgAZWQIiZcpZmLeHPgb3go15oxR1PDQA&userName=Maciej)**
 
-<img src="screenshots/ss2.png" width="300px" />
+<img src="https://raw.githubusercontent.com/maciekt07/TodoApp/main/screenshots/ShareDialog.png" width="300px" alt="Shared Task" />
 
-<img src="screenshots/ss3.png" width="300px" />
+### 🤖 AI Emoji Suggestions
 
-<img src="screenshots/ss4.png" width="300px" />
+This feature uses Chrome’s experimental `window.LanguageModel` API powered by **Gemini Nano** — an on-device LLM.
 
-<img src="screenshots/ss5.png" width="300px" />
+⚠️ Requires **Chrome Canary 128+** with the **Gemini Nano model installed** - [Setup guide](https://docs.google.com/document/d/1VG8HIyz361zGduWgNG7R_R8Xkv0OOJ8b5C9QKeCjU0c/view?pli=1&tab=t.0#heading=h.witohboigk0o)
 
-<img src="screenshots/ss6.png" width="300px" />
+Code: [src/components/EmojiPicker.tsx](https://github.com/maciekt07/TodoApp/blob/main/src/components/EmojiPicker.tsx#L116)
 
-<img src="screenshots/sspc1.png" width="650px" />
+<img src="https://raw.githubusercontent.com/maciekt07/TodoApp/main/screenshots/emoji-ai.gif" alt="AI Emoji" width="360px" style="border-radius:12px" />
 
-## 🚀 Performance
+### 🔄 P2P Task Sync with WebRTC
 
-<img src="screenshots/performance.png" width="600px" />
+Securely sync all the data between devices using peer-to-peer WebRTC connections. Devices pair via QR code, and your data is transferred directly between them — only minimal server involvement for connection setup, with no data stored or processed in the cloud.
+
+- Tasks and categories are auto-merged based on recent edits or deletions
+- For settings and other data, you choose which device to sync from
+
+<video src="https://github-production-user-asset-6210df.s3.amazonaws.com/85953204/459582059-1f2fd620-a64e-42e2-be4f-f17e07fba9a2.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAVCODYLSA53PQK4ZA%2F20250626%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250626T185723Z&X-Amz-Expires=300&X-Amz-Signature=514e1513d883fab2b5b895d9075d0e0a522497e600e2577d1d11a341ab95aa6f&X-Amz-SignedHeaders=host" controls></video>
+
+### 🎨 Color Themes & Dark Mode
+
+Choose from various color themes and toggle between light and dark modes to suit your preferences.
+
+<img src="https://raw.githubusercontent.com/maciekt07/TodoApp/main/screenshots/settings.png" width="500px" />
+
+### 🗣️ Task Reading Aloud
+
+Option to have tasks read aloud using the native `SpeechSynthesis` API, with a selection of voices to choose from.
+
+<img src="https://raw.githubusercontent.com/maciekt07/TodoApp/main/screenshots/ReadAloud.png" width="260px" alt="Task Reading Aloud" />
+
+### 📥 Import/Export Tasks
+
+Users can import and export tasks to/from JSON files. This feature allows users to back up their tasks or transfer them to other devices easily. [Example Import File](https://github.com/maciekt07/TodoApp/blob/main/example-import.json)
+
+### 📴 Progressive Web App (PWA)
+
+This app is a Progressive Web App (PWA), which means it can be installed on your device, **used even when you're offline** and behave like a native app with shortcuts and app badges.
+
+<img src="https://raw.githubusercontent.com/maciekt07/TodoApp/main/screenshots/pwaTaskBar.png" alt="taskbar" width="260px" />
+
+### 🔄 Update Prompt
+
+The app features a custom update prompt that notifies users when a new version is available, allowing for easy refresh to access the latest improvements.
+
+<img src="https://raw.githubusercontent.com/maciekt07/TodoApp/main/screenshots/UpdatePrompt.png" alt="update prompt" width="260px" />
+
+### 📱 Custom Splash Screens
+
+The app automatically generates custom splash screens from a single HTML template for various iOS and iPadOS devices in both light and dark modes. These splash screens provide a smooth, native-like launch experience when the app is opened as a PWA.
+
+<img src="https://raw.githubusercontent.com/maciekt07/TodoApp/main/screenshots/SplashScreen.png" alt="Splash Screen Example" width="450px" />
+
+To generate splash screens:
+
+```bash
+npm run generate-splash
+```
+
+Code: [scripts/splash-screens](https://github.com/maciekt07/TodoApp/blob/main/scripts/splash-screens)
 
 ## 👨‍💻 Installation
 
 To install and run the project locally, follow these steps:
 
-- Clone the repository: `git clone https://github.com/maciekt07/TodoApp.git`
-- Navigate to the project directory: `cd TodoApp`
-- Install the dependencies: `npm install`
-- Start the development server: `npm run dev`
+1. Clone the repository:
+
+```bash
+git clone https://github.com/maciekt07/TodoApp.git
+```
+
+2. Navigate to the project directory:
+
+```bash
+cd TodoApp
+```
+
+3. Install the dependencies:
+
+```bash
+npm install
+```
+
+4. Start the development server:
+
+```bash
+npm run dev
+```
 
 The app will now be running at [http://localhost:5173/](http://localhost:5173/).
 
-<a href="https://www.buymeacoffee.com/maciekt07" target="_blank">
-<img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=&slug=maciekt07&button_colour=1a1b27&font_colour=ffffff&font_family=Lato&outline_colour=ffffff&coffee_colour=FFDD00"></a>
-</a>
+> [!TIP]
+> For mobile device testing, use `npm run dev:host` to preview the app on your local network with HTTPS (required for camera features) and a QR code in the terminal for quick access. To enable PWA features in development, see `vite.config.ts`.
+
+## 📷 Screenshots
+
+<img src="https://raw.githubusercontent.com/maciekt07/TodoApp/main/screenshots/ss1.png" width="300px" />
+<img src="https://raw.githubusercontent.com/maciekt07/TodoApp/main/screenshots/ss2.png" width="300px" />
+
+<img src="https://raw.githubusercontent.com/maciekt07/TodoApp/main/screenshots/ss3.png" width="300px" />
+
+<!-- <img src="https://raw.githubusercontent.com/maciekt07/TodoApp/main/screenshots/ss4.png" width="300px" />
+
+<img src="https://raw.githubusercontent.com/maciekt07/TodoApp/main/screenshots/ss5.png" width="300px" />
+
+<img src="https://raw.githubusercontent.com/maciekt07/TodoApp/main/screenshots/ss6.png" width="300px" /> -->
+
+<img src="https://raw.githubusercontent.com/maciekt07/TodoApp/main/screenshots/sspc1.png" width="650px" />
+
+## 🚀 Performance
+
+<img src="https://raw.githubusercontent.com/maciekt07/TodoApp/main/screenshots/performance.png" width="600px" />
+
+## Credits
+
+Made with ❤️ by [maciekt07](https://github.com/maciekt07), licensed under [MIT](https://github.com/maciekt07/TodoApp/blob/main/LICENSE).

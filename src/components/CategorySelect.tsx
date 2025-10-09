@@ -4,6 +4,7 @@ import {
   EditRounded,
   ExpandMoreRounded,
   RadioButtonChecked,
+  StarRounded,
 } from "@mui/icons-material";
 import {
   Box,
@@ -14,16 +15,21 @@ import {
   MenuItem,
   Select,
   SelectChangeEvent,
+  useTheme,
+  ListSubheader,
 } from "@mui/material";
 import { Emoji } from "emoji-picker-react";
 import { CSSProperties, useContext, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { CategoryBadge } from ".";
 import { MAX_CATEGORIES_IN_TASK } from "../constants";
 import { UserContext } from "../contexts/UserContext";
 import type { Category, UUID } from "../types/user";
 import { getFontColor, showToast } from "../utils";
 import { ColorPalette } from "../theme/themeConfig";
+import { useSystemTheme } from "../hooks/useSystemTheme";
+import { isDarkMode } from "../utils/colorUtils";
+import { useToasterStore } from "react-hot-toast";
 
 interface CategorySelectProps {
   selectedCategories: Category[];
@@ -42,11 +48,13 @@ export const CategorySelect: React.FC<CategorySelectProps> = ({
   fontColor,
 }) => {
   const { user } = useContext(UserContext);
-  const { categories, emojisStyle } = user;
+  const { categories, emojisStyle, favoriteCategories } = user;
   const [selectedCats, setSelectedCats] = useState<Category[]>(selectedCategories);
   const [isOpen, setIsOpen] = useState<boolean>(false);
 
-  const n = useNavigate();
+  const muiTheme = useTheme();
+  const systemTheme = useSystemTheme();
+  const { toasts } = useToasterStore();
 
   const handleCategoryChange = (event: SelectChangeEvent<unknown>): void => {
     const selectedCategoryIds = event.target.value as UUID[];
@@ -54,6 +62,10 @@ export const CategorySelect: React.FC<CategorySelectProps> = ({
       showToast(`You cannot add more than ${MAX_CATEGORIES_IN_TASK} categories`, {
         type: "error",
         position: "top-center",
+        id: "max-categories-toast",
+        preventDuplicate: true,
+        disableVibrate: true,
+        visibleToasts: toasts,
       });
 
       return;
@@ -62,6 +74,14 @@ export const CategorySelect: React.FC<CategorySelectProps> = ({
     setSelectedCats(selectedCategories);
     onCategoryChange?.(selectedCategories);
   };
+
+  // group categories by favorite status
+  const favoriteCats = categories.filter(
+    (cat) => favoriteCategories && favoriteCategories.includes(cat.id),
+  );
+  const otherCats = categories.filter(
+    (cat) => !favoriteCategories || !favoriteCategories.includes(cat.id),
+  );
 
   return (
     <FormControl sx={{ width: width || "100%" }}>
@@ -97,60 +117,43 @@ export const CategorySelect: React.FC<CategorySelectProps> = ({
             />
           </Box>
         )}
-        renderValue={() => (
-          <Box sx={{ display: "flex", flexWrap: "wrap", gap: "4px 8px" }}>
-            {selectedCats.map((category) => (
-              <CategoryBadge
-                key={category.id}
-                category={category}
-                sx={{ cursor: "pointer" }}
-                glow={false}
-              />
-            ))}
-          </Box>
-        )}
+        displayEmpty
+        renderValue={() =>
+          selectedCats.length > 0 ? (
+            <Box sx={{ display: "flex", flexWrap: "wrap", gap: "4px 8px" }}>
+              {selectedCats.map((category) => (
+                <CategoryBadge
+                  key={category.id}
+                  category={category}
+                  sx={{ cursor: "pointer" }}
+                  glow={false}
+                />
+              ))}
+            </Box>
+          ) : (
+            <Box sx={{ color: fontColor }}>Select Categories</Box>
+          )
+        }
         MenuProps={{
           PaperProps: {
             style: {
               maxHeight: 450,
               zIndex: 999999,
               padding: "0px 8px",
+              background: isDarkMode(user.darkmode, systemTheme, muiTheme.palette.secondary.main)
+                ? "#2f2f2f"
+                : "#ffffff",
             },
           },
         }}
       >
-        <HeaderMenuItem disabled>
-          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-            <b>
-              Select Categories{" "}
-              <span
-                style={{
-                  transition: ".3s color",
-                  color: selectedCats.length >= MAX_CATEGORIES_IN_TASK ? "#f34141" : "currentcolor",
-                }}
-              >
-                {categories.length > 3 && <span>(max {MAX_CATEGORIES_IN_TASK})</span>}
-              </span>
-            </b>
-            {selectedCats.length > 0 && (
-              <SelectedNames>
-                Selected:{" "}
-                {selectedCats.length > 0 &&
-                  new Intl.ListFormat("en", {
-                    style: "long",
-                    type: "conjunction",
-                  }).format(selectedCats.map((category) => category.name))}
-              </SelectedNames>
-            )}
-          </div>
-        </HeaderMenuItem>
-
-        {categories && categories.length > 0 ? (
-          categories.map((category) => (
+        {(() => {
+          const renderCategoryItem = (category: Category) => (
             <CategoriesMenu
               key={category.id}
               value={category.id}
               clr={category.color}
+              tabIndex={0}
               translate="no"
               disable={
                 selectedCats.length >= MAX_CATEGORIES_IN_TASK &&
@@ -162,32 +165,88 @@ export const CategorySelect: React.FC<CategorySelectProps> = ({
               &nbsp;
               {category.name}
             </CategoriesMenu>
-          ))
-        ) : (
-          <NoCategories disableTouchRipple>
-            <p>You don't have any categories</p>
-            <Button
-              fullWidth
-              variant="outlined"
-              onClick={() => {
-                n("/categories");
-              }}
-            >
-              <AddRounded /> &nbsp; Add Category
-            </Button>
-          </NoCategories>
-        )}
+          );
+          const createCategoryGroup = (
+            cats: Category[],
+            headerText: React.ReactElement | string,
+            headerId: string,
+          ) => {
+            if (cats.length === 0) return [];
 
-        {categories && categories.length > 0 && (
-          <div style={{ margin: "8px" }}>
-            <Divider sx={{ mb: "12px", mt: "16px" }} />
-            <Link to="/categories">
-              <Button fullWidth variant="outlined" sx={{ mb: "8px", mt: "2px" }}>
-                <EditRounded /> &nbsp; Modify Categories
-              </Button>
-            </Link>
-          </div>
-        )}
+            return [
+              <StyledListSubheader key={headerId} tabIndex={-1}>
+                {headerText}
+              </StyledListSubheader>,
+              ...cats.map(renderCategoryItem),
+            ];
+          };
+
+          if (categories && categories.length > 0) {
+            return [
+              <HeaderMenuItem key="header-info" disabled>
+                <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                  <b>
+                    Select Categories{" "}
+                    <span
+                      style={{
+                        transition: ".3s color",
+                        color:
+                          selectedCats.length >= MAX_CATEGORIES_IN_TASK
+                            ? "#f34141"
+                            : "currentcolor",
+                      }}
+                    >
+                      {categories.length > 3 && <span>(max {MAX_CATEGORIES_IN_TASK})</span>}
+                    </span>
+                  </b>
+                  <SelectedNames>
+                    Selected:{" "}
+                    {selectedCats.length > 0 ? (
+                      new Intl.ListFormat("en", {
+                        style: "long",
+                        type: "conjunction",
+                      }).format(selectedCats.map((category) => category.name))
+                    ) : (
+                      <span style={{ fontStyle: "italic" }}>none</span>
+                    )}
+                  </SelectedNames>
+                </div>
+              </HeaderMenuItem>,
+              ...createCategoryGroup(
+                favoriteCats,
+                <>
+                  <StarRounded color="warning" sx={{ fontSize: "18px" }} />
+                  &nbsp;Favorite Categories
+                </>,
+                "header-favorites",
+              ),
+              ...createCategoryGroup(
+                otherCats,
+                favoriteCats.length > 0 ? "Other Categories" : "",
+                "header-others",
+              ),
+              <div key="footer" style={{ margin: "8px" }}>
+                <Divider sx={{ mb: "12px", mt: "16px" }} />
+                <Link to="/categories">
+                  <Button fullWidth variant="outlined" sx={{ mb: "8px", mt: "2px" }}>
+                    <EditRounded /> &nbsp; Modify Categories
+                  </Button>
+                </Link>
+              </div>,
+            ];
+          } else {
+            return [
+              <NoCategories key="no-categories" disableTouchRipple>
+                <p>You don't have any categories</p>
+                <Link to="/categories" style={{ width: "100%" }}>
+                  <Button fullWidth variant="outlined">
+                    <AddRounded /> &nbsp; Create Category
+                  </Button>
+                </Link>
+              </NoCategories>,
+            ];
+          }
+        })()}
       </StyledSelect>
     </FormControl>
   );
@@ -198,12 +257,11 @@ const StyledSelect = styled(Select)<{ width?: CSSProperties["width"] }>`
   border-radius: 16px !important;
   transition: 0.3s all;
   width: ${({ width }) => width || "100%"};
-  color: white;
-  background: #ffffff18;
-  z-index: 999;
-  border: 1px solid #0000003a;
-`;
 
+  /* background: #ffffff18; */
+  z-index: 999;
+  border: none !important;
+`;
 const CategoriesMenu = styled(MenuItem)<{ clr: string; disable?: boolean }>`
   padding: 12px 16px;
   border-radius: 16px;
@@ -241,20 +299,19 @@ const CategoriesMenu = styled(MenuItem)<{ clr: string; disable?: boolean }>`
     }
   }
 `;
-
 const HeaderMenuItem = styled(MenuItem)`
   opacity: 1 !important;
   font-weight: 500;
   position: sticky !important;
   top: 0;
-  backdrop-filter: blur(6px);
   z-index: 99;
   pointer-events: none !important;
   cursor: default !important;
-  background: ${({ theme }) => (theme.darkmode ? "#2f2f2fc3" : "#ffffffc3")};
+  background-color: ${({ theme }) => (theme.darkmode ? "#2e2e2e" : "#ffffff")};
+  line-height: 20px;
 `;
 
-const SelectedNames = styled.span`
+const SelectedNames = styled.div`
   opacity: 0.9;
   font-size: 15px;
   word-break: break-all;
@@ -278,4 +335,15 @@ const NoCategories = styled(MenuItem)`
   &:hover {
     background: transparent !important;
   }
+`;
+
+const StyledListSubheader = styled(ListSubheader)`
+  background-color: ${({ theme }) => (theme.darkmode ? "#2e2e2e" : "#ffffff")};
+  font-weight: 600;
+  position: sticky;
+  z-index: 1;
+  top: 52px;
+  line-height: 28px;
+  display: flex;
+  align-items: center;
 `;

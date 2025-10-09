@@ -1,43 +1,16 @@
-import { Alert, AlertTitle, Dialog, DialogActions, DialogContent, Tooltip } from "@mui/material";
-import {
-  DescriptionLink,
-  EmojiContainer,
-  Pinned,
-  RingAlarm,
-  TaskContainer,
-  TaskDate,
-  TaskDescription,
-  TaskHeader,
-  TaskInfo,
-  TaskName,
-  TimeLeft,
-} from "../components/tasks/tasks.styled";
+import { Alert, AlertTitle, Dialog, DialogActions, DialogContent } from "@mui/material";
 import { DialogBtn } from "../styles";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useContext, useEffect, useState } from "react";
 import type { Task } from "../types/user";
-import {
-  calculateDateDifference,
-  formatDate,
-  generateUUID,
-  getFontColor,
-  showToast,
-  systemInfo,
-} from "../utils";
-import { Emoji, EmojiStyle } from "emoji-picker-react";
+import { generateUUID, isHexColor, showToast } from "../utils";
 import { UserContext } from "../contexts/UserContext";
-import {
-  AddTaskRounded,
-  DoNotDisturbAltRounded,
-  DoneRounded,
-  ErrorRounded,
-  LinkOff,
-  PushPinRounded,
-} from "@mui/icons-material";
+import { AddTaskRounded, DoNotDisturbAltRounded, ErrorRounded } from "@mui/icons-material";
 import { URL_REGEX, USER_NAME_MAX_LENGTH } from "../constants";
-import { CategoryBadge, CustomDialogTitle } from "../components";
+import { CustomDialogTitle } from "../components";
+import { TaskItem } from "../components/tasks/TaskItem";
 import Home from "./Home";
-
+import LZString from "lz-string";
 //FIXME: make everything type-safe
 const SharePage = () => {
   const { user, setUser } = useContext(UserContext);
@@ -51,36 +24,48 @@ const SharePage = () => {
   const [userName, setUserName] = useState<string>("");
   const [error, setError] = useState<boolean>(false);
   const [errorDetails, setErrorDetails] = useState<string | undefined>();
-  const isHexColor = (value: string): boolean => /^#[0-9A-Fa-f]{6}$/.test(value);
 
   useEffect(() => {
+    document.title = `Todo App - Recieved Task ${taskData ? "(" + taskData.name + ")" : ""}`;
+  }, [taskData]);
+
+  useEffect(() => {
+    const handleTaskData = (decodedTask: string) => {
+      const task: Task = { ...(JSON.parse(decodedTask) as Task), id: generateUUID() };
+
+      if (
+        !isHexColor(task.color) ||
+        (task.category && task.category.some((cat) => !isHexColor(cat.color)))
+      ) {
+        setError(true);
+        setErrorDetails("Invalid task or category color format.");
+        return;
+      }
+
+      setTaskData(task);
+    };
+
     if (taskParam) {
       try {
-        const decodedTask = decodeURIComponent(taskParam);
-        const task: Task = {
-          ...(JSON.parse(decodedTask) as Task),
-          id: generateUUID(),
-        };
-        if (!isHexColor(task.color)) {
-          setError(true);
-          setErrorDetails("Invalid task color format.");
-          return;
+        let decodedTask = decodeURIComponent(taskParam);
+
+        if (decodedTask.startsWith("{") || decodedTask.startsWith("[")) {
+          // old JSON format
+          handleTaskData(decodedTask);
+        } else {
+          // new compressed format
+          decodedTask = LZString.decompressFromEncodedURIComponent(decodedTask);
+          if (!decodedTask) throw new Error("Decompression failed.");
+          handleTaskData(decodedTask);
         }
-        if (task.category) {
-          task.category.forEach((taskCategory) => {
-            if (!isHexColor(taskCategory.color)) {
-              setError(true);
-              setErrorDetails("Invalid category color format.");
-              return;
-            }
-          });
-        }
-        setTaskData(task);
       } catch (error) {
         console.error("Error decoding task data:", error);
-        setErrorDetails("Error decoding task data." + error);
         setError(true);
+        setErrorDetails("Failed to decode task data. The link may be corrupted. " + error);
       }
+    } else {
+      setError(true);
+      setErrorDetails("No task data found in the link.");
     }
 
     if (userNameParam) {
@@ -92,10 +77,6 @@ const SharePage = () => {
       setUserName(decodedUserName);
     }
   }, [taskParam, userNameParam]);
-
-  useEffect(() => {
-    document.title = `Todo App - Recieved Task ${taskData ? "(" + taskData.name + ")" : ""}`;
-  }, [taskData]);
 
   const handleAddTask = () => {
     if (taskData) {
@@ -143,47 +124,19 @@ const SharePage = () => {
     }
   };
 
-  // Renders the task description with optional hyperlink parsing and text highlighting.
-  const renderTaskDescription = (task: Task): JSX.Element | null => {
-    if (!task || !task.description) {
-      return null;
-    }
-
-    const { description, color } = task;
-
-    const parts = description.split(URL_REGEX);
-
-    const descriptionWithLinks = parts.map((part, index) => {
-      if (index % 2 === 0) {
-        return part;
-      } else {
-        // Store link part in state
-        const url = new URL(part);
-        return (
-          <Tooltip title={part} key={index}>
-            <DescriptionLink clr={color} disabled>
-              <div>
-                <LinkOff sx={{ fontSize: "24px" }} /> {url.hostname}
-              </div>
-            </DescriptionLink>
-          </Tooltip>
-        );
-      }
-    });
-
-    return <div>{descriptionWithLinks}</div>;
-  };
-
   return (
-    <div>
+    <>
       <Home />
       <Dialog
         open
-        PaperProps={{
-          style: {
-            borderRadius: "24px",
-            padding: " 10px 6px",
-            width: "100% !important",
+        fullWidth
+        slotProps={{
+          paper: {
+            style: {
+              borderRadius: "24px",
+              padding: " 10px 6px",
+              width: "100% !important",
+            },
           },
         }}
       >
@@ -191,101 +144,21 @@ const SharePage = () => {
           <>
             <CustomDialogTitle
               title="Recieved Task"
-              subTitle="You can now include this task in your list"
+              subTitle="You can now include it in your list."
               icon={<AddTaskRounded />}
             />
             <DialogContent>
               <p style={{ fontSize: "16px", marginLeft: "6px" }}>
-                <b translate="no">{userName}</b> shared you a task.
+                <b translate={userName === "User" ? "yes" : "no"}>{userName}</b> shared you a task.
               </p>
-              <TaskContainer
-                done={taskData.done}
-                backgroundColor={taskData.color}
-                style={{ maxWidth: "600px", opacity: 1, padding: "16px 22px" }}
-              >
-                {taskData.emoji || taskData.done ? (
-                  <EmojiContainer clr={getFontColor(taskData.color)}>
-                    {taskData.done ? (
-                      <DoneRounded fontSize="large" />
-                    ) : user.emojisStyle === EmojiStyle.NATIVE ? (
-                      <div>
-                        <Emoji
-                          size={systemInfo.os === "iOS" ? 48 : 36}
-                          unified={taskData.emoji || ""}
-                          emojiStyle={EmojiStyle.NATIVE}
-                        />
-                      </div>
-                    ) : (
-                      <Emoji
-                        size={48}
-                        unified={taskData.emoji || ""}
-                        emojiStyle={user.emojisStyle}
-                      />
-                    )}
-                  </EmojiContainer>
-                ) : null}
-                <TaskInfo translate="no" style={{ marginRight: "14px" }}>
-                  {taskData.pinned && (
-                    <Pinned translate="yes">
-                      <PushPinRounded fontSize="small" /> &nbsp; Pinned
-                    </Pinned>
-                  )}
-                  <TaskHeader style={{ gap: "6px" }}>
-                    <TaskName done={taskData.done}>{taskData.name}</TaskName>
-                    <Tooltip
-                      title={new Intl.DateTimeFormat(navigator.language, {
-                        dateStyle: "full",
-                        timeStyle: "medium",
-                      }).format(new Date(taskData.date))}
-                    >
-                      <TaskDate>{formatDate(new Date(taskData.date))}</TaskDate>
-                    </Tooltip>
-                  </TaskHeader>
-                  <TaskDescription done={taskData.done}>
-                    {renderTaskDescription(taskData)}
-                  </TaskDescription>
-                  {taskData.deadline && (
-                    <TimeLeft done={taskData.done}>
-                      <RingAlarm
-                        fontSize="small"
-                        animate={new Date() > new Date(taskData.deadline) && !taskData.done}
-                        sx={{
-                          color: `${getFontColor(taskData.color)} !important`,
-                        }}
-                      />
-                      &nbsp;Deadline:&nbsp;
-                      {new Date(taskData.deadline).toLocaleDateString()} {" • "}
-                      {new Date(taskData.deadline).toLocaleTimeString()}
-                      {!taskData.done && (
-                        <>
-                          {" • "}
-                          {calculateDateDifference(new Date(taskData.deadline))}
-                        </>
-                      )}
-                    </TimeLeft>
-                  )}
-                  <div
-                    style={{
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px 6px",
-                      justifyContent: "left",
-                      alignItems: "center",
-                    }}
-                  >
-                    {taskData.category &&
-                      taskData.category.map((category) => (
-                        <div key={category.id}>
-                          <CategoryBadge
-                            category={category}
-                            borderclr={getFontColor(taskData.color)}
-                          />
-                        </div>
-                      ))}
-                  </div>
-                </TaskInfo>
-              </TaskContainer>
-              {taskData && taskData.description && taskData.description.match(URL_REGEX) ? (
+              <TaskItem
+                task={taskData}
+                features={{
+                  enableLinks: false,
+                  enableGlow: false,
+                }}
+              />
+              {taskData && taskData.description && taskData.description.match(URL_REGEX) && (
                 <Alert sx={{ mt: "20px" }} severity="warning">
                   <AlertTitle>This task contains the following links:</AlertTitle>{" "}
                   {(() => {
@@ -304,7 +177,7 @@ const SharePage = () => {
                     return null;
                   })()}
                 </Alert>
-              ) : null}
+              )}
             </DialogContent>
             <DialogActions>
               <DialogBtn color="error" onClick={() => n("/")}>
@@ -323,20 +196,16 @@ const SharePage = () => {
         ) : (
           <>
             <CustomDialogTitle
-              title="Something went wrong"
-              subTitle="The shared task couldn't be processed."
+              title="Failed to recieve Task"
+              subTitle="This Task could not be processed."
               onClose={() => n("/")}
               icon={<ErrorRounded />}
             />
             <DialogContent>
-              <p>
-                Oops! Something went wrong while processing the shared task.{" "}
-                {errorDetails && (
-                  <b>
-                    <br /> {errorDetails}
-                  </b>
-                )}
-              </p>
+              <Alert severity="error">
+                <AlertTitle>Error: failed to process the task</AlertTitle>
+                {errorDetails}
+              </Alert>
             </DialogContent>
             <DialogActions>
               <DialogBtn onClick={() => n("/")}>Close</DialogBtn>
@@ -344,7 +213,7 @@ const SharePage = () => {
           </>
         )}
       </Dialog>
-    </div>
+    </>
   );
 };
 

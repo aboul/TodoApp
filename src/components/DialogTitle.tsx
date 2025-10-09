@@ -1,7 +1,7 @@
 import styled from "@emotion/styled";
 import { CloseRounded } from "@mui/icons-material";
 import { DialogTitle, Divider, IconButton } from "@mui/material";
-import { ComponentProps } from "react";
+import { ComponentProps, JSX } from "react";
 
 type MuiDialogTitleProps = ComponentProps<typeof DialogTitle>;
 
@@ -9,6 +9,7 @@ interface CustomDialogTitleProps extends MuiDialogTitleProps {
   title: string;
   subTitle?: string;
   icon?: JSX.Element;
+  removeDivider?: boolean;
   onClose?: () => void;
 }
 
@@ -16,6 +17,7 @@ export const CustomDialogTitle = ({
   title,
   subTitle,
   icon,
+  removeDivider,
   onClose,
   ...props
 }: CustomDialogTitleProps) => {
@@ -30,10 +32,10 @@ export const CustomDialogTitle = ({
         {icon && <IconWrapper>{icon}</IconWrapper>}
         <TextContainer>
           <Title>{title}</Title>
-          <SubTitle>{subTitle}</SubTitle>
+          {subTitle && <SubTitle>{subTitle}</SubTitle>}
         </TextContainer>
       </TitleContainer>
-      <StyledDivider />
+      {!removeDivider && <StyledDivider />}
     </DialogTitle>
   );
 };

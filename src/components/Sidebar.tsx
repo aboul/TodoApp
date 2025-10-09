@@ -1,10 +1,13 @@
+import { keyframes, useTheme } from "@emotion/react";
 import styled from "@emotion/styled";
 import {
+  AccessTimeFilledRounded,
   AddRounded,
   AdjustRounded,
   BugReportRounded,
   CategoryRounded,
   DeleteForeverRounded,
+  DownloadDoneRounded,
   Favorite,
   FavoriteRounded,
   FiberManualRecord,
@@ -15,9 +18,11 @@ import {
   IosShareRounded,
   Logout,
   PhoneIphoneRounded,
+  PhonelinkRounded,
   SettingsRounded,
   StarRounded,
   TaskAltRounded,
+  ThumbUpRounded,
 } from "@mui/icons-material";
 import {
   Dialog,
@@ -31,25 +36,29 @@ import {
 } from "@mui/material";
 import React, { useContext, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { CustomDialogTitle, SettingsDialog } from ".";
-import bmcLogo from "../assets/bmc-logo.svg";
+import { CustomDialogTitle, LogoutDialog, SettingsDialog } from ".";
 import bmcLogoLight from "../assets/bmc-logo-light.svg";
-import logo from "../assets/logo256.png";
+import bmcLogo from "../assets/bmc-logo.svg";
 import { defaultUser } from "../constants/defaultUser";
 import { UserContext } from "../contexts/UserContext";
 import { fetchBMCInfo } from "../services/bmcApi";
 import { fetchGitHubInfo } from "../services/githubApi";
-import { DialogBtn, UserAvatar, pulseAnimation, ring } from "../styles";
-import { showToast, systemInfo, timeAgo } from "../utils";
-import { useTheme } from "@emotion/react";
+import { DialogBtn, UserAvatar, pulseAnimation, reduceMotion, ring } from "../styles";
 import { ColorPalette } from "../theme/themeConfig";
+import {
+  getProfilePictureFromDB,
+  shortRelativeTime,
+  showToast,
+  systemInfo,
+  timeAgo,
+} from "../utils";
 
 export const ProfileSidebar = () => {
   const { user, setUser } = useContext(UserContext);
   const { name, profilePicture, tasks, settings } = user;
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
-  const [logoutConfirmationOpen, setLogoutConfirmationOpen] = useState<boolean>(false);
+  const [openLogoutDialog, setOpenLogoutDialog] = useState<boolean>(false);
   const [openSettings, setOpenSettings] = useState<boolean>(false);
 
   const [stars, setStars] = useState<number | null>(null);
@@ -84,27 +93,22 @@ export const ProfileSidebar = () => {
     fetchRepoInfo();
   }, []);
 
+  const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadProfilePicture = async () => {
+      const picture = await getProfilePictureFromDB(profilePicture);
+      setAvatarSrc(picture);
+    };
+    loadProfilePicture();
+  }, [profilePicture]);
+
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     setAnchorEl(event.currentTarget);
   };
 
   const handleClose = () => {
     setAnchorEl(null);
-  };
-
-  const handleLogoutConfirmationOpen = () => {
-    setLogoutConfirmationOpen(true);
-    setAnchorEl(null);
-  };
-
-  const handleLogoutConfirmationClose = () => {
-    setLogoutConfirmationOpen(false);
-  };
-
-  const handleLogout = () => {
-    setUser(defaultUser);
-    handleLogoutConfirmationClose();
-    showToast("You have been successfully logged out");
   };
 
   interface BeforeInstallPromptEvent extends Event {
@@ -119,6 +123,8 @@ export const ProfileSidebar = () => {
   const [supportsPWA, setSupportsPWA] = useState<boolean>(false);
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isAppInstalled, setIsAppInstalled] = useState<boolean>(false);
+
+  const [openInstalledDialog, setOpenInstalledDialog] = useState<boolean>(false);
 
   useEffect(() => {
     const beforeInstallPromptHandler = (e: Event) => {
@@ -146,16 +152,21 @@ export const ProfileSidebar = () => {
       deferredPrompt.prompt();
       deferredPrompt.userChoice.then((choiceResult) => {
         if (choiceResult.outcome === "accepted") {
-          showToast("App installed successfully!");
-          if ("setAppBadge" in navigator) {
-            setUser((prevUser) => ({
-              ...prevUser,
-              settings: 
-                {
-                  ...prevUser.settings,
-                  appBadge: true,
-                },
-            }));
+          // if ("setAppBadge" in navigator) {
+          //   setUser((prevUser) => ({
+          //     ...prevUser,
+          //     settings: {
+          //       ...prevUser.settings,
+          //       appBadge: true,
+          //     },
+          //   }));
+          // }
+
+          // Show a dialog to inform the user that the app is now running as a PWA on Windows
+          if (systemInfo.os === "Windows") {
+            setOpenInstalledDialog(true);
+          } else {
+            showToast("App installed successfully!");
           }
           handleClose();
         }
@@ -165,6 +176,25 @@ export const ProfileSidebar = () => {
       });
     }
   };
+
+  // const avatarButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  // useEffect(() => {
+  //   const handleKeyDown = (e: KeyboardEvent) => {
+  //     if (e.repeat) return;
+  //     if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "b") {
+  //       e.preventDefault();
+  //       if (open) {
+  //         setAnchorEl(null);
+  //       } else if (avatarButtonRef.current) {
+  //         setAnchorEl(avatarButtonRef.current);
+  //       }
+  //     }
+  //   };
+
+  //   document.addEventListener("keydown", handleKeyDown);
+  //   return () => document.removeEventListener("keydown", handleKeyDown);
+  // }, [open]);
 
   return (
     <Container>
@@ -178,9 +208,14 @@ export const ProfileSidebar = () => {
           sx={{ zIndex: 1 }}
         >
           <UserAvatar
-            src={(profilePicture as string) || undefined}
+            src={avatarSrc || undefined}
             alt={name || "User"}
             hasimage={profilePicture !== null}
+            pulse={
+              user.name === defaultUser.name &&
+              user.profilePicture === defaultUser.profilePicture &&
+              JSON.stringify(user.settings) === JSON.stringify(defaultUser.settings)
+            }
             size="52px"
             onError={() => {
               // This prevents the error handling from being called unnecessarily when offline
@@ -213,7 +248,7 @@ export const ProfileSidebar = () => {
             handleClose();
           }}
         >
-          <Logo src={logo} alt="logo" />
+          <Logo src="/logo192.png" alt="logo" />
           <LogoText>
             <span>Todo</span> App
             <span>.</span>
@@ -261,17 +296,33 @@ export const ProfileSidebar = () => {
           </StyledMenuItem>
         </MenuLink>
 
+        <MenuLink to="/sync">
+          <StyledMenuItem onClick={handleClose}>
+            <PhonelinkRounded /> &nbsp; Sync Devices
+            {user.lastSyncedAt && (
+              <Tooltip title={`Last synced ${timeAgo(new Date(user.lastSyncedAt))}`}>
+                <MenuLabel>
+                  <span>
+                    <AccessTimeFilledRounded style={{ fontSize: "16px" }} />
+                    {shortRelativeTime(new Date(user.lastSyncedAt))}
+                  </span>
+                </MenuLabel>
+              </Tooltip>
+            )}
+          </StyledMenuItem>
+        </MenuLink>
+
         <StyledDivider />
 
         <MenuLink to="https://github.com/maciekt07/TodoApp">
           <StyledMenuItem translate="no">
-            <GitHub /> &nbsp; Github{" "}
+            <GitHub className="GitHubIcon" /> &nbsp; Github{" "}
             {stars && (
               <Tooltip title={`${stars} stars on Github`}>
                 <MenuLabel clr="#ff9d00">
-                  <span style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span>
                     <StarRounded style={{ fontSize: "18px" }} />
-                    &nbsp;{stars}
+                    {stars}
                   </span>
                 </MenuLabel>
               </Tooltip>
@@ -281,13 +332,12 @@ export const ProfileSidebar = () => {
 
         <MenuLink to="https://github.com/maciekt07/TodoApp/issues/new">
           <StyledMenuItem>
-            <BugReportRounded /> &nbsp; Report Issue{" "}
+            <BugReportRounded className="BugReportRoundedIcon" /> &nbsp; Report Issue{" "}
             {Boolean(issuesCount || issuesCount === 0) && (
               <Tooltip title={`${issuesCount} open issues`}>
                 <MenuLabel clr="#3bb61c">
-                  <span style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span>
                     <AdjustRounded style={{ fontSize: "18px" }} />
-                    &nbsp;
                     {issuesCount}
                   </span>
                 </MenuLabel>
@@ -303,9 +353,9 @@ export const ProfileSidebar = () => {
             {bmcSupporters && (
               <Tooltip title={`${bmcSupporters} supporters on Buy me a coffee`}>
                 <MenuLabel clr="#f93c58">
-                  <span style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span>
                     <FavoriteRounded style={{ fontSize: "16px" }} />
-                    &nbsp;{bmcSupporters}
+                    {bmcSupporters}
                   </span>
                 </MenuLabel>
               </Tooltip>
@@ -316,8 +366,12 @@ export const ProfileSidebar = () => {
         <StyledDivider />
 
         {supportsPWA && !isAppInstalled && (
-          <StyledMenuItem onClick={installPWA}>
-            {systemInfo.os === "Android" ? <InstallMobileRounded /> : <InstallDesktopRounded />}
+          <StyledMenuItem tabIndex={0} onClick={installPWA}>
+            {systemInfo.os === "Android" ? (
+              <InstallMobileRounded />
+            ) : (
+              <InstallDesktopRounded className="InstallDesktopRoundedIcon" />
+            )}
             &nbsp; Install App
           </StyledMenuItem>
         )}
@@ -326,6 +380,7 @@ export const ProfileSidebar = () => {
           systemInfo.os === "iOS" &&
           !window.matchMedia("(display-mode: standalone)").matches && (
             <StyledMenuItem
+              tabIndex={0}
               onClick={() => {
                 showToast(
                   <div style={{ display: "inline-block" }}>
@@ -343,35 +398,44 @@ export const ProfileSidebar = () => {
             </StyledMenuItem>
           )}
 
-        <StyledMenuItem onClick={handleLogoutConfirmationOpen} sx={{ color: "#ff4040 !important" }}>
-          <Logout /> &nbsp; Logout
+        <StyledMenuItem
+          tabIndex={0}
+          onClick={() => {
+            handleClose();
+            setOpenLogoutDialog(true);
+          }}
+          sx={{ color: "#ff4040 !important" }}
+        >
+          <Logout className="LogoutIcon" /> &nbsp; Logout
         </StyledMenuItem>
 
         <ProfileOptionsBottom>
           <SettingsMenuItem
+            tabIndex={0}
             onClick={() => {
               setOpenSettings(true);
               handleClose();
             }}
           >
-            <SettingsRounded /> &nbsp; Settings
-            {settings === defaultUser.settings && <PulseMenuLabel />}
+            <SettingsRounded className="SettingsRoundedIcon" /> &nbsp; Settings
+            {JSON.stringify(settings) === JSON.stringify(defaultUser.settings) &&
+              user.darkmode === defaultUser.darkmode &&
+              user.theme === defaultUser.theme &&
+              user.emojisStyle === defaultUser.emojisStyle && <PulseMenuLabel />}
           </SettingsMenuItem>
 
           <StyledDivider />
           <MenuLink to="/user">
             <ProfileMenuItem translate={name ? "no" : "yes"} onClick={handleClose}>
               <UserAvatar
-                src={(profilePicture as string) || undefined}
+                src={avatarSrc || undefined}
                 hasimage={profilePicture !== null}
                 size="44px"
               >
                 {name ? name[0].toUpperCase() : undefined}
               </UserAvatar>
               <h4 style={{ margin: 0, fontWeight: 600 }}> {name || "User"}</h4>{" "}
-              {(name === null || name === "") &&
-                profilePicture === null &&
-                user.theme === defaultUser.theme && <PulseMenuLabel />}
+              {(name === null || name === "") && profilePicture === null && <PulseMenuLabel />}
             </ProfileMenuItem>
           </MenuLink>
 
@@ -406,26 +470,36 @@ export const ProfileSidebar = () => {
         </ProfileOptionsBottom>
       </StyledSwipeableDrawer>
 
-      <Dialog open={logoutConfirmationOpen} onClose={handleLogoutConfirmationClose}>
-        <CustomDialogTitle title="Logout Confirmation" icon={<Logout />} />
+      <Dialog open={openInstalledDialog} onClose={() => setOpenInstalledDialog(false)}>
+        <CustomDialogTitle
+          title="App installed successfully!"
+          subTitle="The app is now running as a PWA."
+          icon={<DownloadDoneRounded />}
+          onClose={() => setOpenInstalledDialog(false)}
+        />
         <DialogContent>
-          Are you sure you want to logout? <b>Your tasks will not be saved.</b>
+          You can access it from your home screen, with offline support and features like shortcuts
+          and badges.
         </DialogContent>
         <DialogActions>
-          <DialogBtn onClick={handleLogoutConfirmationClose}>Cancel</DialogBtn>
-          <DialogBtn onClick={handleLogout} color="error">
-            <Logout /> &nbsp; Logout
+          <DialogBtn onClick={() => setOpenInstalledDialog(false)}>
+            <ThumbUpRounded /> &nbsp; Got it
           </DialogBtn>
         </DialogActions>
       </Dialog>
-      <SettingsDialog open={openSettings} onClose={() => setOpenSettings(!openSettings)} />
+      <LogoutDialog open={openLogoutDialog} onClose={() => setOpenLogoutDialog(false)} />
+      <SettingsDialog
+        open={openSettings}
+        onClose={() => setOpenSettings(false)}
+        handleOpen={() => setOpenSettings(true)}
+      />
     </Container>
   );
 };
 
 const MenuLink = ({ to, children }: { to: string; children: React.ReactNode }) => {
   const styles: React.CSSProperties = { borderRadius: "14px" };
-  if (to.startsWith("/")) {
+  if (to.startsWith("/") || to === "") {
     return (
       // React Router Link component for internal navigation
       <Link to={to} style={styles}>
@@ -441,6 +515,24 @@ const MenuLink = ({ to, children }: { to: string; children: React.ReactNode }) =
   );
 };
 
+const PulseMenuLabel = () => {
+  return (
+    <StyledPulseMenuLabel>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <FiberManualRecord style={{ fontSize: "16px" }} />
+      </div>
+    </StyledPulseMenuLabel>
+  );
+};
+
+// TODO: make avatar sticky on pages with TopBar.tsx
+
 const Container = styled.div`
   position: absolute;
   right: 16vw;
@@ -448,6 +540,9 @@ const Container = styled.div`
   z-index: 900;
   @media (max-width: 1024px) {
     right: 16px;
+  }
+  @media print {
+    display: none;
   }
 `;
 
@@ -471,6 +566,41 @@ const StyledSwipeableDrawer = styled(SwipeableDrawer)`
     @media (max-width: 600px) {
       min-width: 55vw;
     }
+
+    ${({ theme }) => reduceMotion(theme)}
+  }
+`;
+
+const LogoutAnimation = keyframes`
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.9) translateX(-2px);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+`;
+
+const InstallAppAnimation = keyframes`
+   0% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-5px);
+  }
+  50% {
+    transform: translateY(2px);
+  }
+  70% {
+    transform: translateY(-2px);
+  }
+  100% {
+    transform: translateY(0);
   }
 `;
 
@@ -487,16 +617,37 @@ const StyledMenuItem = styled(MenuItem)`
     transition: 0.4s transform;
   }
 
+  &:focus-visible {
+    outline: 2px solid ${({ theme }) => (theme.darkmode ? "#fff" : "#000")};
+    background: none;
+  }
+
   &:hover {
-    & svg[data-testid="GitHubIcon"] {
+    & svg.GitHubIcon {
       transform: rotateY(${2 * Math.PI}rad);
     }
-    & svg[data-testid="BugReportRoundedIcon"] {
-      transform: rotate(45deg) scale(0.9) translateY(-20%);
+    & svg.BugReportRoundedIcon {
+      transform: rotate(45deg) scale(1.1) translateY(-10%);
     }
+
+    & svg.InstallDesktopRoundedIcon {
+      animation: ${InstallAppAnimation} 0.8s ease-in alternate;
+    }
+
+    & svg.LogoutIcon {
+      animation: ${LogoutAnimation} 0.5s ease-in alternate;
+    }
+
     & .bmc-icon {
       animation: ${ring} 2.5s ease-in alternate;
     }
+  }
+
+  /* disable all animation and transition when user prefers reduced motion */
+  &,
+  & svg,
+  & .bmc-icon {
+    ${({ theme }) => reduceMotion(theme, { transform: "none !important" })}
   }
 `;
 
@@ -506,9 +657,12 @@ const SettingsMenuItem = styled(StyledMenuItem)`
   margin-top: 8px !important;
   &:hover {
     background: ${({ theme }) => (theme.darkmode ? "#1f1f1fb2" : "#101727b2")};
-    & svg[data-testid="SettingsRoundedIcon"] {
+    & svg.SettingsRoundedIcon {
       transform: rotate(180deg);
     }
+  }
+  &:focus-visible {
+    background: ${({ theme }) => (theme.darkmode ? "#1f1f1f" : "#101727")};
   }
 `;
 
@@ -530,31 +684,24 @@ const MenuLabel = styled.span<{ clr?: string }>`
   padding: 2px 12px;
   border-radius: 32px;
   font-size: 14px;
+  & span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
 `;
 
 const StyledDivider = styled(Divider)`
   margin: 8px 4px;
 `;
 
-const PulseMenuLabel = styled(MenuLabel)`
+const StyledPulseMenuLabel = styled(MenuLabel)`
   animation: ${({ theme }) => pulseAnimation(theme.primary, 6)} 1.2s infinite;
   padding: 6px;
   margin-right: 4px;
+  ${({ theme }) => reduceMotion(theme)}
 `;
-
-PulseMenuLabel.defaultProps = {
-  children: (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <FiberManualRecord style={{ fontSize: "16px" }} />
-    </div>
-  ),
-};
 
 const LogoContainer = styled.div`
   display: flex;
@@ -575,7 +722,7 @@ const Logo = styled.img`
 
 const LogoText = styled.h2`
   & span {
-    color: ${({ theme }) => theme.primary};
+    color: #7764e8;
   }
 `;
 

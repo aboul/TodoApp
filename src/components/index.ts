@@ -1,9 +1,9 @@
 export { TasksList } from "./tasks/TasksList";
 export { ProfileSidebar } from "./Sidebar";
-export { EditTask } from "./EditTask";
+export { EditTask } from "./tasks/EditTask";
 export { TopBar } from "./TopBar";
 export { CustomEmojiPicker } from "./EmojiPicker";
-export { SettingsDialog } from "./Settings";
+export { SettingsDialog } from "./settings/SettingsDialog";
 export { TaskMenu } from "./tasks/TaskMenu";
 export { BottomNav } from "./BottomNav";
 export { CategorySelect } from "./CategorySelect";
@@ -13,3 +13,6 @@ export { CategoryBadge } from "./CategoryBadge";
 export { TaskIcon } from "./TaskIcon";
 export { Loading } from "./Loading";
 export { CustomDialogTitle } from "./DialogTitle";
+export { LogoutDialog } from "./LogoutDialog";
+export { TabPanel, TabGroupProvider } from "./TabPanel";
+export { TaskItem } from "./tasks/TaskItem";

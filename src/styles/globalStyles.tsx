@@ -1,9 +1,15 @@
 import { Global, css, useTheme } from "@emotion/react";
 import { getFontColor } from "../utils";
 import { ColorPalette } from "../theme/themeConfig";
+import { reduceMotion } from "./reduceMotion.styled";
+import { useContext } from "react";
+import { UserContext } from "../contexts/UserContext";
+import { usePrefersReducedMotion } from "../hooks/usePrefersReducedMotion";
 
 export const GlobalStyles = () => {
   const theme = useTheme();
+  const { user } = useContext(UserContext);
+  const prefersReducedMotion = usePrefersReducedMotion(user.settings.reduceMotion);
 
   return (
     <Global
@@ -14,7 +20,7 @@ export const GlobalStyles = () => {
           &::selection {
             background-color: ${theme.primary + "e1"};
             color: ${getFontColor(theme.primary)};
-            text-shadow: 0 0 12px ${getFontColor(theme.primary) + "b9"};
+            /* text-shadow: 0 0 12px ${getFontColor(theme.primary) + "b9"}; */
           }
         }
         :root {
@@ -31,6 +37,10 @@ export const GlobalStyles = () => {
           --rsbs-backdrop-bg: rgba(0, 0, 0, 0.3);
           --rsbs-bg: ${theme.darkmode ? "#383838" : "#ffffff"};
         }
+
+        input[type="datetime-local"]:placeholder-shown {
+          color: transparent !important;
+        }
         img {
           -webkit-user-select: none;
           -khtml-user-select: none;
@@ -45,9 +55,6 @@ export const GlobalStyles = () => {
           color: inherit;
         }
 
-        input[type="file"]::-webkit-file-upload-button {
-          display: none;
-        }
         div[role="dialog"] {
           border-radius: 42px 42px 0 0;
           z-index: 9999999;
@@ -70,6 +77,24 @@ export const GlobalStyles = () => {
         div[data-rsbs-header] {
           box-shadow: none;
         }
+
+        [data-rsbs-root] {
+          ${prefersReducedMotion &&
+          css`
+            --rsbs-animation-duration: 0ms !important;
+            --rsbs-backdrop-opacity: 1 !important;
+          `}
+        }
+
+        [data-rsbs-root],
+        [data-rsbs-root] * {
+          ${reduceMotion(theme, {
+            transform: "none !important",
+            willChange: "auto !important",
+            scrollBehavior: "auto",
+          })};
+        }
+
         body {
           margin: 8px 16vw;
           touch-action: manipulation;
@@ -110,13 +135,18 @@ export const GlobalStyles = () => {
           border-radius: 18px;
           overflow-x: auto;
         }
-
+        // EMOJI PICKER REACT STYLES
         .EmojiPickerReact {
           --epr-search-border-color: ${theme.primary} !important;
+          --epr-hover-bg-color-reduced-opacity: ${theme.primary + "64"} !important;
+          --epr-hover-bg-color: ${theme.primary} !important;
+          --epr-focus-bg-color: ${theme.primary + "64"} !important;
           --epr-dark-bg-color: ${ColorPalette.darkMode} !important;
           --epr-dark-category-label-bg-color: ${ColorPalette.darkMode + "d8"} !important;
-          --epr-skin-tone-picker-menu-color: ${ColorPalette.darkMode} !important;
-          --epr-emoji-variation-picker-bg-color: ${ColorPalette.darkMode} !important;
+          --epr-skin-tone-picker-menu-color: transparent !important;
+          --epr-emoji-variation-picker-bg-color: ${theme.darkmode
+            ? ColorPalette.darkMode
+            : ColorPalette.lightMode} !important;
           --epr-emoji-variation-picker-menu-color: ${ColorPalette.darkMode} !important;
           --epr-dark-search-input-bg-color-active: #313131 !important;
           --epr-dark-picker-border-color: #616161 !important;
@@ -143,6 +173,7 @@ export const GlobalStyles = () => {
         .epr-body,
         .MuiDialogContent-root,
         .MuiDrawer-paper,
+        .customScrollbar,
         textarea {
           ::-webkit-scrollbar {
             width: 8px;
@@ -165,19 +196,51 @@ export const GlobalStyles = () => {
           }
         }
 
+        // QR CODE SCANNER STYLES
+        .scanner-container div[style*="border: 2px dashed"] {
+          border-color: ${theme.primary}66 !important; /* 66 hex = 40% opacity */
+        }
+        .scanner-container
+          div[style*="border-color: rgb(239, 68, 68) transparent transparent rgb(239, 68, 68)"] {
+          border-color: ${theme.primary} transparent transparent ${theme.primary} !important;
+        }
+
+        .scanner-container
+          div[style*="border-color: rgb(239, 68, 68) rgb(239, 68, 68) transparent transparent"] {
+          border-color: ${theme.primary} ${theme.primary} transparent transparent !important;
+        }
+
+        .scanner-container
+          div[style*="border-color: transparent transparent rgb(239, 68, 68) rgb(239, 68, 68)"] {
+          border-color: transparent transparent ${theme.primary} ${theme.primary} !important;
+        }
+
+        .scanner-container
+          div[style*="border-color: transparent rgb(239, 68, 68) rgb(239, 68, 68) transparent"] {
+          border-color: transparent ${theme.primary} ${theme.primary} transparent !important;
+        }
+        // MATERIAL UI STYLES
         .MuiDialog-container {
           backdrop-filter: blur(4px);
+        }
+        .MuiButton-contained {
+          box-shadow: none !important;
         }
         .MuiPaper-elevation8 {
           border-radius: 16px !important;
         }
-        .MuiSelect-select,
         .MuiSelect-select {
           display: flex !important;
           justify-content: left;
           align-items: center;
           gap: 4px;
         }
+
+        .MuiDialog-container,
+        .MuiPaper-root {
+          ${reduceMotion(theme)}
+        }
+
         .MuiTooltip-tooltip {
           color: ${theme.darkmode ? "white" : "black"} !important;
           background-color: ${theme.darkmode ? "#141431dd" : "#ededf3dd"} !important;
@@ -185,6 +248,7 @@ export const GlobalStyles = () => {
           padding: 8px 16px !important;
           border-radius: 8px !important;
           font-size: 12px !important;
+          ${reduceMotion(theme)}
         }
         .MuiBottomNavigationAction-root {
           padding: 12px !important;
@@ -204,10 +268,10 @@ export const GlobalStyles = () => {
         .MuiCircularProgress-circle {
           stroke-linecap: round !important;
         }
+        /* 
         .MuiTabs-indicator {
           border-radius: 24px !important;
-          height: 3px !important;
-        }
+        } */
         .MuiAccordion-root {
           &::before {
             display: none;

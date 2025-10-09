@@ -1,7 +1,8 @@
 import styled from "@emotion/styled";
-import { fadeIn, fadeInLeft, progressPulse, pulseAnimation } from "./keyframes.styled";
-import { Box, Button, CircularProgress, css } from "@mui/material";
+import { fadeIn, progressPulse, pulseAnimation, scale } from "./keyframes.styled";
+import { Box, Button, CircularProgress, css, IconButton } from "@mui/material";
 import { getFontColor, isDark } from "../utils";
+import { reduceMotion } from ".";
 
 export const GreetingHeader = styled.div`
   display: flex;
@@ -14,26 +15,22 @@ export const GreetingHeader = styled.div`
   @media (max-width: 550px) {
     font-size: 22px;
   }
-`;
-
-export const GreetingText = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 16px;
-  margin-top: 4px;
-  margin-left: 8px;
-  font-style: italic;
-  animation: ${fadeInLeft} 0.5s ease-in-out;
+  @media print {
+    display: none;
+  }
 `;
 
 export const TasksCountContainer = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
+  @media print {
+    display: none;
+  }
 `;
 //TODO: design this better for light themes
 export const TasksCount = styled.div<{ glow: boolean }>`
+  position: relative;
   color: ${({ theme }) => getFontColor(theme.secondary)};
   /* background: #090b2258; */
   background: ${({ theme }) => (isDark(theme.secondary) ? "#090b2258" : "#ffffff3e")};
@@ -50,6 +47,14 @@ export const TasksCount = styled.div<{ glow: boolean }>`
   @media (min-width: 1024px) {
     padding: 24px;
   }
+`;
+
+export const TaskCountClose = styled(IconButton)`
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  opacity: 0.8;
+  color: ${({ theme }) => getFontColor(theme.secondary)};
 `;
 
 export const TaskCountTextContainer = styled.div`
@@ -94,6 +99,8 @@ export const ProgressPercentageContainer = styled(Box)<{ glow: boolean }>`
           ${progressPulse(theme.primary)} 4s infinite ease-in
         `
       : "none"};
+
+  ${({ theme }) => reduceMotion(theme)}
 `;
 
 export const StyledProgress = styled(CircularProgress)<{ glow: boolean }>`
@@ -129,14 +136,21 @@ export const AddButton = styled(Button)<{ animate?: boolean; glow: boolean }>`
     backdrop-filter: blur(6px);
   }
 
+  animation: ${scale} 0.5s;
   ${({ animate, theme }) =>
     animate &&
     css`
       animation: ${pulseAnimation(theme.primary, 14)} 1.2s infinite;
     `}
 
+  ${({ theme }) => reduceMotion(theme)}
+
   @media (max-width: 1024px) {
     right: 24px;
+  }
+
+  @media print {
+    display: none;
   }
 `;
 

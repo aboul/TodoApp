@@ -1,15 +1,22 @@
 import { Emoji } from "emoji-picker-react";
 import { lazy, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ColorPicker, CustomDialogTitle, CustomEmojiPicker, TopBar } from "../components";
-import type { Category, UUID } from "../types/user";
-import { useTheme } from "@emotion/react";
-import { Delete, DeleteRounded, Edit, SaveRounded } from "@mui/icons-material";
 import {
+  CategoryBadge,
+  ColorPicker,
+  CustomDialogTitle,
+  CustomEmojiPicker,
+  TopBar,
+} from "../components";
+import type { Category, Task, UUID } from "../types/user";
+import { useTheme } from "@emotion/react";
+import { Delete, DeleteRounded, Edit, ExpandMoreRounded, SaveRounded } from "@mui/icons-material";
+import {
+  AccordionDetails,
+  AccordionSummary,
   Dialog,
   DialogActions,
   DialogContent,
-  DialogTitle,
   IconButton,
   Tooltip,
 } from "@mui/material";
@@ -20,6 +27,7 @@ import {
   ActionButton,
   AddCategoryButton,
   AddContainer,
+  AssociatedTasksAccordion,
   CategoriesContainer,
   CategoryContent,
   CategoryElement,
@@ -27,14 +35,22 @@ import {
   CategoryInput,
   DialogBtn,
   EditNameInput,
+  StarChecked,
+  StarUnchecked,
 } from "../styles";
-import { generateUUID, getFontColor, showToast } from "../utils";
+import { formatDate, generateUUID, getFontColor, showToast, timeAgo } from "../utils";
 import { ColorPalette } from "../theme/themeConfig";
+import InputThemeProvider from "../contexts/InputThemeProvider";
+import { useToasterStore } from "react-hot-toast";
+import { TaskContext } from "../contexts/TaskContext";
+
+const DEFAULT_EDIT_CATEGORY_SUBTITLE = "Edit the details of the category.";
 
 const NotFound = lazy(() => import("./NotFound"));
 
 const Categories = () => {
   const { user, setUser } = useContext(UserContext);
+  const { updateCategory } = useContext(TaskContext);
   const theme = useTheme();
 
   const [name, setName] = useStorageState<string>("", "catName", "sessionStorage");
@@ -50,8 +66,14 @@ const Categories = () => {
   const [editNameError, setEditNameError] = useState<string>("");
   const [editEmoji, setEditEmoji] = useState<string | null>(null);
   const [editColor, setEditColor] = useState<string>(ColorPalette.purple);
+  const [editLastSaveLabel, setEditLastSaveLabel] = useState<string>(
+    DEFAULT_EDIT_CATEGORY_SUBTITLE,
+  );
 
   const n = useNavigate();
+  const { toasts } = useToasterStore();
+
+  const selectedCategory = user.categories.find((cat) => cat.id === selectedCategoryId);
 
   useEffect(() => {
     document.title = "Todo App - Categories";
@@ -64,39 +86,52 @@ const Categories = () => {
   }, [n, name.length, user.settings]);
 
   useEffect(() => {
-    setEditColor(
-      user.categories.find((cat) => cat.id === selectedCategoryId)?.color || ColorPalette.purple,
-    );
-    setEditName(user.categories.find((cat) => cat.id === selectedCategoryId)?.name || "");
-    setEditNameError("");
+    const cat = user.categories.find((cat) => cat.id === selectedCategoryId);
+    if (cat) {
+      setEditColor(cat.color || ColorPalette.purple);
+      setEditName(cat.name || "");
+      setEditEmoji(cat.emoji || null);
+      setEditNameError("");
+      setEditLastSaveLabel(
+        cat.lastSave
+          ? `Last edited ${timeAgo(new Date(cat.lastSave))} • ${formatDate(new Date(cat.lastSave))}`
+          : DEFAULT_EDIT_CATEGORY_SUBTITLE,
+      );
+    }
   }, [selectedCategoryId, user.categories]);
 
   const handleDelete = (categoryId: UUID | undefined) => {
-    if (categoryId) {
-      const categoryName =
-        user.categories.find((category) => category.id === categoryId)?.name || "";
-      const updatedCategories = user.categories.filter((category) => category.id !== categoryId);
-      // Remove the category from tasks that have it associated
-      const updatedTasks = user.tasks.map((task) => {
-        const updatedCategoryList = task.category?.filter((category) => category.id !== categoryId);
-        return {
-          ...task,
-          category: updatedCategoryList,
-        };
-      });
+    if (!categoryId) return;
 
-      setUser({
-        ...user,
-        categories: updatedCategories,
-        tasks: updatedTasks,
-      });
+    const categoryName = user.categories.find((category) => category.id === categoryId)?.name || "";
 
-      showToast(
-        <div>
-          Deleted category - <b translate="no">{categoryName}.</b>
-        </div>,
-      );
-    }
+    const updatedCategories = user.categories.filter((category) => category.id !== categoryId);
+    const updatedFavoriteCategories = user.favoriteCategories.filter((id) => id !== categoryId);
+
+    const updatedTasks = user.tasks.map((task) => {
+      const updatedCategoryList = task.category?.filter((category) => category.id !== categoryId);
+      return {
+        ...task,
+        category: updatedCategoryList,
+      };
+    });
+
+    setUser((prevUser) => ({
+      ...prevUser,
+      categories: updatedCategories,
+      favoriteCategories: updatedFavoriteCategories,
+      tasks: updatedTasks,
+      deletedCategories: [
+        ...(prevUser.deletedCategories || []),
+        ...(prevUser.deletedCategories?.includes(categoryId) ? [] : [categoryId]),
+      ],
+    }));
+
+    showToast(
+      <div>
+        Deleted category - <b translate="no">{categoryName}.</b>
+      </div>,
+    );
   };
 
   const handleNameChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -126,6 +161,7 @@ const Categories = () => {
       }
       const newCategory: Category = {
         id: generateUUID(),
+        lastSave: new Date(),
         name,
         emoji: emoji !== "" && emoji !== null ? emoji : undefined,
         color,
@@ -146,7 +182,12 @@ const Categories = () => {
       setColor(theme.primary);
       setEmoji("");
     } else {
-      showToast("Category name is required.", { type: "error" });
+      showToast("Category name is required.", {
+        type: "error",
+        preventDuplicate: true,
+        id: "category-name-required",
+        visibleToasts: toasts,
+      });
     }
   };
 
@@ -159,52 +200,37 @@ const Categories = () => {
   };
 
   const handleEditCategory = () => {
-    if (selectedCategoryId) {
-      const updatedCategories = user.categories.map((category) => {
-        if (category.id === selectedCategoryId) {
-          return {
-            ...category,
-            name: editName,
-            emoji: editEmoji || undefined,
-            color: editColor,
-          };
-        }
-        return category;
-      });
+    updateCategory({
+      id: selectedCategoryId,
+      name: editName,
+      emoji: editEmoji || undefined,
+      color: editColor,
+      lastSave: new Date(),
+    });
 
-      const updatedTasks = user.tasks.map((task) => {
-        const updatedCategoryList = task.category?.map((category) => {
-          if (category.id === selectedCategoryId) {
-            return {
-              id: selectedCategoryId,
-              name: editName,
-              emoji: editEmoji || undefined,
-              color: editColor,
-            };
-          }
-          return category;
-        });
+    showToast(
+      <div>
+        Updated category - <b translate="no">{editName}</b>
+      </div>,
+    );
 
-        return {
-          ...task,
-          category: updatedCategoryList,
-        };
-      });
+    setOpenEditDialog(false);
+  };
 
-      setUser({
-        ...user,
-        categories: updatedCategories,
-        tasks: updatedTasks,
-      });
+  const handleAddToFavorites = (category: Category) => {
+    setUser((user) => ({
+      ...user,
+      favoriteCategories: user.favoriteCategories.includes(category.id)
+        ? user.favoriteCategories.filter((id) => id !== category.id)
+        : [...user.favoriteCategories, category.id],
+      categories: user.categories.map((cat) =>
+        cat.id === category.id ? { ...cat, lastSave: new Date() } : cat,
+      ),
+    }));
+  };
 
-      showToast(
-        <div>
-          Updated category - <b translate="no">{editName}</b>
-        </div>,
-      );
-
-      setOpenEditDialog(false);
-    }
+  const getAssociatedTasks = (categoryId: UUID): Task[] => {
+    return user.tasks.filter((task) => task.category?.some((cat) => cat.id === categoryId));
   };
 
   if (!user.settings.enableCategories) {
@@ -250,7 +276,16 @@ const Categories = () => {
                       </Tooltip>
                     )}
                   </CategoryContent>
-                  <div style={{ display: "flex", gap: "4px" }}>
+                  <div style={{ display: "flex", gap: "6px" }}>
+                    <ActionButton>
+                      <IconButton color="warning" onClick={() => handleAddToFavorites(category)}>
+                        {user.favoriteCategories.includes(category.id) ? (
+                          <StarChecked color="warning" />
+                        ) : (
+                          <StarUnchecked color="disabled" />
+                        )}
+                      </IconButton>
+                    </ActionButton>
                     <ActionButton>
                       <IconButton
                         color="primary"
@@ -267,8 +302,11 @@ const Categories = () => {
                         color="error"
                         onClick={() => {
                           setSelectedCategoryId(category.id);
-                          if (totalTasksCount > 0) {
-                            // Open delete dialog if there are tasks associated to catagory
+                          if (
+                            totalTasksCount > 0 ||
+                            user.favoriteCategories.includes(category.id)
+                          ) {
+                            // Open delete dialog if there are tasks associated to catagory or if it's a favorite
                             setOpenDeleteDialog(true);
                           } else {
                             // If no associated tasks, directly handle deletion
@@ -296,29 +334,29 @@ const Categories = () => {
             name={name}
             type="category"
           />
-          <CategoryInput
-            focused
-            required
-            label="Category name"
-            placeholder="Enter category name"
-            value={name}
-            onChange={handleNameChange}
-            error={nameError !== ""}
-            helperText={
-              name == ""
-                ? undefined
-                : !nameError
-                  ? `${name.length}/${CATEGORY_NAME_MAX_LENGTH}`
-                  : nameError
-            }
-          />
-          {/* <Typography>Color</Typography> */}
+          <InputThemeProvider>
+            <CategoryInput
+              required
+              label="Category name"
+              placeholder="Enter category name"
+              value={name}
+              onChange={handleNameChange}
+              error={nameError !== ""}
+              helperText={
+                name == ""
+                  ? undefined
+                  : !nameError
+                    ? `${name.length}/${CATEGORY_NAME_MAX_LENGTH}`
+                    : nameError
+              }
+            />
+          </InputThemeProvider>
           <ColorPicker
             color={color}
             onColorChange={(color) => {
               setColor(color);
             }}
-            width={360}
+            width={400}
             fontColor={getFontColor(theme.secondary)}
           />
           <AddCategoryButton
@@ -328,24 +366,46 @@ const Categories = () => {
             Create Category
           </AddCategoryButton>
         </AddContainer>
-        <Dialog
-          open={openDeleteDialog}
-          onClose={() => setOpenDeleteDialog(false)}
-          PaperProps={{
-            style: {
-              borderRadius: "24px",
-              padding: "12px",
-              maxWidth: "600px",
-            },
-          }}
-        >
-          <DialogTitle>
-            Confirm deletion of{" "}
-            <b>{user.categories.find((cat) => cat.id === selectedCategoryId)?.name}</b>
-          </DialogTitle>
+        <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)}>
+          <CustomDialogTitle
+            title="Delete this category?"
+            subTitle="This action cannot be undone."
+            icon={<DeleteRounded />}
+            onClose={() => setOpenDeleteDialog(false)}
+          />
 
           <DialogContent>
-            This will remove the category from your list and associated tasks.
+            {selectedCategory ? (
+              <>
+                <CategoryBadge
+                  glow={false}
+                  category={user.categories.find((cat) => cat.id === selectedCategoryId)!}
+                  sx={{ width: "100%", height: "100%", margin: "0 auto", borderRadius: "12px" }}
+                />
+                {getAssociatedTasks(selectedCategoryId!).length > 0 && (
+                  <AssociatedTasksAccordion>
+                    <AccordionSummary expandIcon={<ExpandMoreRounded />}>
+                      <span style={{ fontWeight: 600 }}>
+                        {`Associated Tasks (${getAssociatedTasks(selectedCategoryId!).length})`}
+                      </span>
+                    </AccordionSummary>
+                    <AccordionDetails sx={{ p: 0, m: 0 }}>
+                      <ul>
+                        {user.tasks
+                          .filter((task) =>
+                            task.category?.some((cat) => cat.id === selectedCategoryId),
+                          )
+                          .map((task) => (
+                            <li key={task.id}>{task.name}</li>
+                          ))}
+                      </ul>
+                    </AccordionDetails>
+                  </AssociatedTasksAccordion>
+                )}
+              </>
+            ) : (
+              <p style={{ textAlign: "center" }}>Category not found</p>
+            )}
           </DialogContent>
 
           <DialogActions>
@@ -365,17 +425,19 @@ const Categories = () => {
         <Dialog
           open={openEditDialog}
           onClose={handleEditDimiss}
-          PaperProps={{
-            style: {
-              borderRadius: "24px",
-              padding: "12px",
-              minWidth: "350px",
+          slotProps={{
+            paper: {
+              style: {
+                borderRadius: "24px",
+                padding: "12px",
+                minWidth: "350px",
+              },
             },
           }}
         >
           <CustomDialogTitle
             title="Edit Category"
-            subTitle={`Edit the details of the category.`}
+            subTitle={editLastSaveLabel}
             icon={<Edit />}
             onClose={handleEditDimiss}
           />

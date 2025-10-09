@@ -13,14 +13,25 @@ export type DarkModeOptions = "system" | "auto" | "light" | "dark";
 export interface User {
   name: string | null;
   createdAt: Date;
+  /**
+   * must be a URL starting with "https://" or a local file reference in the form "LOCAL_FILE_" + UUID
+   */
   profilePicture: string | null;
   emojisStyle: EmojiStyle;
   tasks: Task[];
+  /**
+   * Stores the IDs of tasks that were deleted locally.
+   * Used to ensure deletions are synced correctly across devices.
+   */
+  deletedTasks: UUID[];
   categories: Category[];
+  deletedCategories: UUID[];
+  favoriteCategories: UUID[];
   colorList: string[];
   settings: AppSettings;
-  theme: string;
+  theme: "system" | (string & {});
   darkmode: DarkModeOptions;
+  lastSyncedAt?: Date;
 }
 
 /**
@@ -34,6 +45,9 @@ export interface Task {
   description?: string;
   emoji?: string;
   color: string;
+  /**
+   * created at date
+   */
   date: Date;
   deadline?: Date;
   category?: Category[];
@@ -41,16 +55,11 @@ export interface Task {
   sharedBy?: string;
   recurring: boolean;
   recurringInterval?: string;
+  /**
+   * Optional numeric position for drag-and-drop (for p2p sync)
+   */
+  position?: number;
 }
-
-// export type Emoji = Omit<
-//   EmojiClickData,
-//   "activeSkinTone" | "names" | "unifiedWithoutSkinTone" | "getImageUrl"
-// > & {
-//   name: string;
-// };
-
-// export type Emoji = Pick<EmojiClickData, "unified" | "emoji" | "names">;
 
 /**
  * Represents a category in the application.
@@ -60,6 +69,7 @@ export interface Category {
   name: string;
   emoji?: string;
   color: string;
+  lastSave?: Date;
 }
 
 /**
@@ -72,8 +82,18 @@ export interface AppSettings {
   simpleEmojiPicker: boolean;
   enableReadAloud: boolean;
   appBadge: boolean;
-  voice: string;
+  showProgressBar: boolean;
+  /**
+   * Voice property in the format 'name::lang' to ensure uniqueness on macOS/iOS,
+   * where multiple voices can share the same name.
+   */
+  voice: `${string}::${string}`;
   voiceVolume: number;
+  sortOption: SortOption;
+  reduceMotion: ReduceMotionOption;
 }
 
 export type RecurringIntervals = "" | "daily" | "weekly" | "monthly" | "yearly";
+
+export type SortOption = "dateCreated" | "dueDate" | "alphabetical" | "custom";
+export type ReduceMotionOption = "system" | "on" | "off";

@@ -1,4 +1,6 @@
 import "@emotion/react";
+import type { Theme as MuiTheme } from "@mui/material/styles";
+import type { ReduceMotionOption } from "./user";
 declare module "@emotion/react" {
   export interface Theme {
     /**
@@ -13,5 +15,13 @@ declare module "@emotion/react" {
      * Emotion darkmode
      */
     darkmode: boolean;
+    /**
+     * Defines animation preference: "on" (disable), "off" (enable), or "system" (OS default)
+     */
+    reduceMotion: ReduceMotionOption;
+    /**
+     * Material UI Theme
+     */
+    mui: MuiTheme;
   }
 }
