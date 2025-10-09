@@ -124,28 +124,7 @@ const Home = () => {
       )}
       {tasks.length > 0 && settings.showProgressBar && (
         <TasksCountContainer>
-          <TasksCount glow={settings.enableGlow}>
-            <TaskCountClose
-              size="small"
-              onClick={() => {
-                updateShowProgressBar(false);
-                showToast(
-                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    Progress bar hidden. You can enable it in settings.
-                    <Button
-                      variant="contained"
-                      sx={{ p: "12px 32px" }}
-                      onClick={() => updateShowProgressBar(true)}
-                      startIcon={<UndoRounded />}
-                    >
-                      Undo
-                    </Button>
-                  </span>,
-                );
-              }}
-            >
-              <CloseRounded />
-            </TaskCountClose>
+          <TasksCount glow={settings[0].enableGlow}>
             <Box sx={{ position: "relative", display: "inline-flex" }}>
               <StyledProgress
                 variant="determinate"
@@ -157,7 +136,7 @@ const Home = () => {
               />
 
               <ProgressPercentageContainer
-                glow={settings.enableGlow && taskStats.completedTaskPercentage > 0}
+                glow={settings[0].enableGlow && completedTaskPercentage > 0}
               >
                 <Typography
                   variant="caption"

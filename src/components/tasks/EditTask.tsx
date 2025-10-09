@@ -4,14 +4,17 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
+  FormGroup,
+  FormControlLabel,
   IconButton,
   InputAdornment,
+  Switch,
   TextField,
   TextFieldProps,
   Tooltip,
 } from "@mui/material";
 import { useContext, useEffect, useMemo, useState } from "react";
-import { ColorPicker, CustomDialogTitle, CustomEmojiPicker } from "..";
+import { ColorPicker, CustomDialogTitle, CustomEmojiPicker, RecurringIntervalSelect } from "..";
 import { DESCRIPTION_MAX_LENGTH, TASK_NAME_MAX_LENGTH } from "../../constants";
 import { UserContext } from "../../contexts/UserContext";
 import { DialogBtn } from "../../styles";
@@ -34,6 +37,7 @@ export const EditTask = ({ open, task, onClose }: EditTaskProps) => {
   const { settings } = user;
   const [editedTask, setEditedTask] = useState<Task | undefined>(task);
   const [emoji, setEmoji] = useState<string | null>(null);
+  const [selectedRecurringInterval, setSelectedRecurringInterval] = useState<string>("");
   const [selectedCategories, setSelectedCategories] = useState<Category[]>([]);
   const [editLastSaveLabel, setEditLastSaveLabel] = useState<string>(DEFAULT_EDIT_TASK_SUBTITLE);
 
@@ -61,6 +65,7 @@ export const EditTask = ({ open, task, onClose }: EditTaskProps) => {
   useEffect(() => {
     setEditedTask(task);
     setSelectedCategories(task?.category as Category[]);
+    setSelectedRecurringInterval(task?.recurringInterval as string);
     if (task?.lastSave) {
       setEditLastSaveLabel(
         `Last edited ${timeAgo(new Date(task.lastSave))} • ${formatDate(new Date(task.lastSave))}`,
@@ -79,6 +84,15 @@ export const EditTask = ({ open, task, onClose }: EditTaskProps) => {
       ...(prevTask as Task),
       [name]: value,
     }));
+  };
+  const handleSwitchChange = (event: React.SyntheticEvent<Element>) => {
+    const { name, checked } = event.target as HTMLInputElement;
+    setEditedTask((prevTask) => ({
+      ...(prevTask as Task),
+      [name]: checked,
+    }));
+
+    console.log(name);
   };
   // Event handler for saving the edited task.
   const handleSave = () => {
@@ -116,14 +130,16 @@ export const EditTask = ({ open, task, onClose }: EditTaskProps) => {
     onClose();
     setEditedTask(task);
     setSelectedCategories(task?.category as Category[]);
+    setSelectedRecurringInterval(task?.recurringInterval as string);
   };
 
   useEffect(() => {
     setEditedTask((prevTask) => ({
       ...(prevTask as Task),
       category: (selectedCategories as Category[]) || undefined,
+      recurringInterval: (selectedRecurringInterval as string) || undefined,
     }));
-  }, [selectedCategories]);
+  }, [selectedCategories, selectedRecurringInterval]);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -248,7 +264,25 @@ export const EditTask = ({ open, task, onClose }: EditTaskProps) => {
             },
           }}
         />
-
+        <FormGroup>
+          <FormControlLabel
+            sx={{ opacity: editedTask?.recurring ? 1 : 0.8 }}
+            checked={editedTask?.recurring}
+            onChange={handleSwitchChange}
+            name="recurring"
+            control={<Switch />}
+            labelPlacement="top"
+            label="Is recurring task?"
+          />
+        </FormGroup>
+        {editedTask?.recurring && (
+          <RecurringIntervalSelect
+            selectedRecurringInterval={selectedRecurringInterval}
+            onRecurringChange={(recurringInterval) =>
+              setSelectedRecurringInterval(recurringInterval)
+            }
+          />
+        )}
         {settings.enableCategories !== undefined && settings.enableCategories && (
           <CategorySelect
             fontColor={theme.darkmode ? ColorPalette.fontLight : ColorPalette.fontDark}

@@ -3,7 +3,14 @@ import { useState, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { AddTaskButton, Container, StyledInput } from "../styles";
 import { AddTaskRounded, CancelRounded } from "@mui/icons-material";
-import { IconButton, InputAdornment, Tooltip } from "@mui/material";
+import {
+  FormControlLabel,
+  FormGroup,
+  IconButton,
+  InputAdornment,
+  Switch,
+  Tooltip,
+} from "@mui/material";
 import { DESCRIPTION_MAX_LENGTH, TASK_NAME_MAX_LENGTH } from "../constants";
 import { ColorPicker, TopBar, CustomEmojiPicker } from "../components";
 import { UserContext } from "../contexts/UserContext";
@@ -11,6 +18,7 @@ import { useStorageState } from "../hooks/useStorageState";
 import { useTheme } from "@emotion/react";
 import { generateUUID, getFontColor, isDark, showToast } from "../utils";
 import { ColorPalette } from "../theme/themeConfig";
+import { RecurringIntervalSelect } from "../components/RecurringIntervalSelect";
 import InputThemeProvider from "../contexts/InputThemeProvider";
 import { CategorySelect } from "../components/CategorySelect";
 import { useToasterStore } from "react-hot-toast";
@@ -24,6 +32,12 @@ const AddTask = () => {
   const [description, setDescription] = useStorageState<string>(
     "",
     "description",
+    "sessionStorage",
+  );
+  const [recurring, isRecurring] = useStorageState<boolean>(false, "recurring", "sessionStorage");
+  const [selectedRecurringInterval, setSelectedRecurringInterval] = useStorageState<string>(
+    "",
+    "recurringInterval",
     "sessionStorage",
   );
   const [deadline, setDeadline] = useStorageState<string>("", "deadline", "sessionStorage");
@@ -81,6 +95,10 @@ const AddTask = () => {
     }
   };
 
+  const handleSwitchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    isRecurring(event.target.checked);
+  };
+
   const handleDeadlineChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setDeadline(event.target.value);
   };
@@ -111,6 +129,8 @@ const AddTask = () => {
       date: new Date(),
       deadline: deadline !== "" ? new Date(deadline) : undefined,
       category: selectedCategories ? selectedCategories : [],
+      recurring,
+      recurringInterval: selectedRecurringInterval !== "" ? selectedRecurringInterval : undefined,
     };
 
     setUser((prevUser) => ({
@@ -211,7 +231,24 @@ const AddTask = () => {
               },
             }}
           />
-
+          <FormGroup>
+            <FormControlLabel
+              sx={{ opacity: recurring ? 1 : 0.8 }}
+              control={
+                <Switch name="recurring" checked={recurring} onChange={handleSwitchChange} />
+              }
+              labelPlacement="top"
+              label="Is recurring task?"
+            />
+          </FormGroup>
+          {recurring && (
+            <RecurringIntervalSelect
+              selectedRecurringInterval={selectedRecurringInterval}
+              onRecurringChange={(recurringInterval) =>
+                setSelectedRecurringInterval(recurringInterval)
+              }
+            />
+          )}
           {user.settings.enableCategories !== undefined && user.settings.enableCategories && (
             <div style={{ marginBottom: "14px" }}>
               <br />
